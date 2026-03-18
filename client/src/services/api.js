@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'https://science-tech-club-iju0.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://science-tech-club-mecs-fo98.onrender.com/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -21,7 +21,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // ✅ Don't intercept login/register failures
       const url = error.config?.url || ''
       if (!url.includes('/auth/login') && !url.includes('/auth/register')) {
         console.log('🔒 Unauthorized - Token expired or invalid')
