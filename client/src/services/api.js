@@ -7,6 +7,8 @@ const api = axios.create({
   }
 })
 
+const API_BASE = 'https://science-tech-club-mecs-fo98.onrender.com/api';
+
 // Attach token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
