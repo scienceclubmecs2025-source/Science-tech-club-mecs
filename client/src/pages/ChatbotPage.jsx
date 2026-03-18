@@ -1,76 +1,134 @@
-import { useState } from 'react'
-import api from '../services/api'
-import { MessageCircle, Send, Loader2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react';
+import { MessageCircle, Send, Loader2, Trash2 } from 'lucide-react';
+import api from '../services/api';
 
-export default function Chatbot() {
-  const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+export default function ChatbotPage() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
-  const handleAsk = async (e) => {
-    e.preventDefault()
-    if (!question.trim()) return
-    setLoading(true)
-    setError('')
-    setAnswer('')
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return;
+    
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setInput('');
+    setLoading(true);
 
     try {
-      const res = await api.post('/chatbot', { message: question })
-      setAnswer(res.data.reply || 'No answer returned.')
-    } catch (err) {
-      setError(err.response?.data?.message || 'Chatbot request failed.')
+      const { data } = await api.post('/chatbot', { message: userMessage });
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `❌ ${error.response?.data?.message || 'Club assistant unavailable'}` 
+      }]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const clearChat = async () => {
+    try {
+      await api.delete('/chatbot/history');
+      setMessages([]);
+    } catch (error) {
+      console.error('Clear failed:', error);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black text-gray-100 flex items-center justify-center px-4 py-16">
-      <div className="w-full max-w-2xl border border-neutral-800 rounded-2xl bg-neutral-950/70 p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 via-cyan-400 to-purple-500 flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black pt-20">
+      <div className="max-w-2xl mx-auto px-4 pb-12">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 rounded-2xl mb-4 shadow-2xl">
+            <MessageCircle className="w-8 h-8 text-white" />
+            <div>
+              <h1 className="text-2xl font-bold text-white">Club Assistant</h1>
+              <p className="text-sm text-emerald-100">Powered by Ollama 🦙</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-white">Science & Tech Club Chatbot</h1>
-            <p className="text-xs text-neutral-400">
-              Ask about club events, courses, or general tech questions.
-            </p>
-          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              className="flex items-center gap-2 mx-auto text-sm text-gray-400 hover:text-emerald-400 transition-all p-2 rounded-lg hover:bg-emerald-500/10"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear Chat
+            </button>
+          )}
         </div>
 
-        <form onSubmit={handleAsk} className="mb-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask me anything..."
-              className="flex-1 rounded-xl bg-black border border-neutral-800 px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center justify-center rounded-xl bg-white text-black px-3 py-2 text-sm font-medium hover:bg-neutral-200 disabled:opacity-60"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            </button>
-          </div>
-        </form>
+        {/* Messages */}
+        <div className="space-y-4 mb-6 max-h-[70vh] overflow-y-auto bg-gray-900/50 backdrop-blur-xl rounded-3xl p-6 border border-gray-700 shadow-2xl">
+          {messages.length === 0 ? (
+            <div className="text-center text-gray-500 py-16">
+              <MessageCircle className="w-20 h-20 mx-auto mb-6 opacity-40" />
+              <h3 className="text-xl font-medium mb-2">Ready to help!</h3>
+              <p className="text-lg">Ask about club events, projects, courses, robotics, AI, or web dev</p>
+            </div>
+          ) : (
+            messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[85%] p-4 rounded-2xl shadow-lg ${
+                  msg.role === 'user'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white'
+                    : 'bg-gray-800/80 backdrop-blur text-white border border-gray-700'
+                }`}>
+                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                </div>
+              </div>
+            ))
+          )}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-800/80 backdrop-blur text-white p-4 rounded-2xl border border-gray-700 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                  <span className="font-medium">Club Assistant is thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-        {error && (
-          <div className="mb-3 text-xs text-red-400 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        {answer && (
-          <div className="mt-3 text-sm text-neutral-200 border border-neutral-800 rounded-xl bg-black px-3 py-3 whitespace-pre-wrap">
-            {answer}
-          </div>
-        )}
+        {/* Input */}
+        <div className="flex gap-3 p-6 bg-gray-900/50 backdrop-blur-xl rounded-3xl border border-gray-700 shadow-2xl">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Ask about events, projects, courses, robotics, AI, web dev..."
+            rows="1"
+            className="flex-1 max-h-32 resize-none bg-black/50 border border-gray-600 rounded-2xl px-5 py-4 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all"
+            disabled={loading}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            className="group p-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-2xl text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center hover:scale-105 active:scale-95"
+          >
+            <Send className={`w-6 h-6 transition-transform ${loading || !input.trim() ? '' : 'group-hover:rotate-12'}`} />
+          </button>
+        </div>
       </div>
     </div>
-  )
+  );
 }
