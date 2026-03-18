@@ -22,7 +22,7 @@ export default function Chatbot() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const data = await api.get('chatbot/history');
+        const { data } = await api.get('/chatbot/history');  // ✅ fixed
         if (data && data.length > 0) {
           const historyMessages = data.flatMap((h, i) => [
             { id: `h-user-${i}`, type: 'user', text: h.message },
@@ -47,8 +47,7 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
-      // ✅ CORRECT field name: { message }
-      const data = await api.post('chatbot', { message: trimmed });
+      const { data } = await api.post('/chatbot', { message: trimmed });  // ✅ fixed
       const botMsg = { id: Date.now() + 1, type: 'bot', text: data.reply };
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
@@ -73,7 +72,7 @@ export default function Chatbot() {
   const handleClearHistory = async () => {
     if (!confirm('Clear chat history?')) return;
     try {
-      await api.delete('chatbot/history');
+      await api.delete('/chatbot/history');  // ✅ fixed
       setMessages([{
         id: Date.now(),
         type: 'bot',
@@ -85,7 +84,6 @@ export default function Chatbot() {
   };
 
   const renderText = (text) => {
-    // Bold **text** support
     return text.split('\n').map((line, i) => {
       const parts = line.split(/\*\*(.*?)\*\*/g);
       return (
@@ -168,7 +166,7 @@ export default function Chatbot() {
           {['Upcoming events', 'Latest announcements', 'Available courses', 'Active projects'].map(s => (
             <button
               key={s}
-              onClick={() => { setInput(s); }}
+              onClick={() => setInput(s)}
               className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded-full whitespace-nowrap transition"
             >
               {s}
