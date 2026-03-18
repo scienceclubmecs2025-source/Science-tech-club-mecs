@@ -14,7 +14,7 @@ export default function ChatbotPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    
+
     const userMessage = input.trim();
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setInput('');
@@ -24,10 +24,13 @@ export default function ChatbotPage() {
       const { data } = await api.post('/chatbot', { message: userMessage });
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (error) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: `❌ ${error.response?.data?.message || 'Club assistant unavailable'}` 
-      }]);
+      const msg =
+        error.response?.data?.message ||
+        'Chatbot unavailable, please try again later.';
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `❌ ${msg}` }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -38,7 +41,7 @@ export default function ChatbotPage() {
       await api.delete('/chatbot/history');
       setMessages([]);
     } catch (error) {
-      console.error('Clear failed:', error);
+      console.error('Clear history failed:', error);
     }
   };
 
@@ -54,17 +57,17 @@ export default function ChatbotPage() {
       <div className="max-w-2xl mx-auto px-4 pb-12">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-3 rounded-2xl mb-4 shadow-2xl">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 rounded-2xl mb-4 shadow-2xl">
             <MessageCircle className="w-8 h-8 text-white" />
             <div>
               <h1 className="text-2xl font-bold text-white">Club Assistant</h1>
-              <p className="text-sm text-emerald-100">Powered by Ollama 🦙</p>
+              <p className="text-sm text-blue-100">Powered by Google Gemini</p>
             </div>
           </div>
           {messages.length > 0 && (
             <button
               onClick={clearChat}
-              className="flex items-center gap-2 mx-auto text-sm text-gray-400 hover:text-emerald-400 transition-all p-2 rounded-lg hover:bg-emerald-500/10"
+              className="flex items-center gap-2 mx-auto text-sm text-gray-400 hover:text-white transition"
             >
               <Trash2 className="w-4 h-4" />
               Clear Chat
@@ -78,7 +81,9 @@ export default function ChatbotPage() {
             <div className="text-center text-gray-500 py-16">
               <MessageCircle className="w-20 h-20 mx-auto mb-6 opacity-40" />
               <h3 className="text-xl font-medium mb-2">Ready to help!</h3>
-              <p className="text-lg">Ask about club events, projects, courses, robotics, AI, or web dev</p>
+              <p className="text-lg">
+                Ask about club events, projects, courses, robotics, AI, or web dev
+              </p>
             </div>
           ) : (
             messages.map((msg, index) => (
@@ -86,12 +91,16 @@ export default function ChatbotPage() {
                 key={index}
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[85%] p-4 rounded-2xl shadow-lg ${
-                  msg.role === 'user'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white'
-                    : 'bg-gray-800/80 backdrop-blur text-white border border-gray-700'
-                }`}>
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                <div
+                  className={`max-w-[85%] p-4 rounded-2xl shadow-lg ${
+                    msg.role === 'user'
+                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                      : 'bg-gray-800/80 backdrop-blur text-white border border-gray-700'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap leading-relaxed">
+                    {msg.content}
+                  </p>
                 </div>
               </div>
             ))
@@ -100,7 +109,7 @@ export default function ChatbotPage() {
             <div className="flex justify-start">
               <div className="bg-gray-800/80 backdrop-blur text-white p-4 rounded-2xl border border-gray-700 shadow-lg">
                 <div className="flex items-center gap-3">
-                  <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
                   <span className="font-medium">Club Assistant is thinking...</span>
                 </div>
               </div>
@@ -117,15 +126,19 @@ export default function ChatbotPage() {
             onKeyDown={handleKeyPress}
             placeholder="Ask about events, projects, courses, robotics, AI, web dev..."
             rows="1"
-            className="flex-1 max-h-32 resize-none bg-black/50 border border-gray-600 rounded-2xl px-5 py-4 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all"
+            className="flex-1 max-h-32 resize-none bg-black/50 border border-gray-600 rounded-2xl px-5 py-4 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
             disabled={loading}
           />
           <button
             onClick={sendMessage}
             disabled={loading || !input.trim()}
-            className="group p-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-2xl text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center hover:scale-105 active:scale-95"
+            className="group p-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-2xl text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center hover:scale-105 active:scale-95"
           >
-            <Send className={`w-6 h-6 transition-transform ${loading || !input.trim() ? '' : 'group-hover:rotate-12'}`} />
+            <Send
+              className={`w-6 h-6 transition-transform ${
+                loading || !input.trim() ? '' : 'group-hover:rotate-12'
+              }`}
+            />
           </button>
         </div>
       </div>
