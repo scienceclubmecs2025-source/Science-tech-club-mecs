@@ -3,6 +3,15 @@ const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
 
+// Safe io getter — avoids circular require at module load time
+const getIo = () => {
+  try {
+    return require('../server').io;
+  } catch {
+    return null;
+  }
+};
+
 // Get messages for a room
 router.get('/:room', auth, async (req, res) => {
   try {
@@ -12,7 +21,7 @@ router.get('/:room', auth, async (req, res) => {
       .eq('room', req.params.room)
       .order('created_at', { ascending: true })
       .limit(100);
-    
+
     if (error) throw error;
     res.json(data);
   } catch (error) {
@@ -24,7 +33,7 @@ router.get('/:room', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { room, message } = req.body;
-    
+
     const { data, error } = await supabase
       .from('messages')
       .insert([{
@@ -35,13 +44,13 @@ router.post('/', auth, async (req, res) => {
       }])
       .select()
       .single();
-    
+
     if (error) throw error;
-    
-    // Emit via Socket.IO
-    const { io } = require('../server');
-    io.to(room).emit('new-message', data);
-    
+
+    // Emit via Socket.IO (safe — only runs after server is initialized)
+    const io = getIo();
+    if (io) io.to(room).emit('new-message', data);
+
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: 'Failed to send message', error: error.message });
@@ -56,12 +65,13 @@ router.delete('/:id', auth, async (req, res) => {
       .delete()
       .eq('id', req.params.id)
       .eq('user_id', req.user.id);
-    
+
     if (error) throw error;
-    
-    const { io } = require('../server');
-    io.emit('message-deleted', req.params.id);
-    
+
+    // Emit via Socket.IO (safe)
+    const io = getIo();
+    if (io) io.emit('message-deleted', req.params.id);
+
     res.json({ message: 'Message deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete message', error: error.message });
