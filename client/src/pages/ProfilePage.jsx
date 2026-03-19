@@ -38,13 +38,12 @@ export default function ProfilePage() {
     const file = e.target.files[0]
     if (!file) return
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Only JPG, PNG, or GIF files are allowed')
       return
     }
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       alert('Image size should be less than 5MB')
       return
@@ -55,18 +54,25 @@ export default function ProfilePage() {
       const formData = new FormData()
       formData.append('photo', file)
 
-      const data = await api.post('/users/profile/upload-photo', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      // ✅ Fixed: correct endpoint + no manual Content-Type (breaks multipart boundary)
+      const data = await api.post('/users/profile/photo', formData)
+
+      // ✅ Fixed: backend returns profile_photo_url not photo_url
+      setProfile(prev => ({ ...prev, profile_photo_url: data.profile_photo_url }))
+      setEditedProfile(prev => ({ ...prev, profile_photo_url: data.profile_photo_url }))
+
+      // Update localStorage so navbar avatar refreshes
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      localStorage.setItem('user', JSON.stringify({ ...user, profile_photo_url: data.profile_photo_url }))
 
       alert('✅ Photo uploaded successfully!')
-      setProfile({ ...profile, profile_photo_url: data.photo_url })
-      setEditedProfile({ ...editedProfile, profile_photo_url: data.photo_url })
     } catch (error) {
       console.error('Upload failed:', error)
       alert(error.response?.data?.message || 'Failed to upload photo')
     } finally {
       setUploading(false)
+      // Reset file input so same file can be re-selected after remove
+      e.target.value = ''
     }
   }
 
@@ -83,26 +89,19 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Build update data with only provided fields
       const updateData = {}
-      
       if (editedProfile.full_name) updateData.full_name = editedProfile.full_name
-      if (editedProfile.email) updateData.email = editedProfile.email
-      if (editedProfile.phone) updateData.phone = editedProfile.phone
-      if (editedProfile.bio) updateData.bio = editedProfile.bio
+      if (editedProfile.bio !== undefined) updateData.bio = editedProfile.bio
       if (editedProfile.department) updateData.department = editedProfile.department
       if (editedProfile.year) updateData.year = editedProfile.year
-      if (editedProfile.location) updateData.location = editedProfile.location
-      if (editedProfile.interests) updateData.interests = editedProfile.interests
 
       const data = await api.put('/users/profile', updateData)
       setProfile(data)
       setEditing(false)
-      
-      // Update local storage
-      const user = JSON.parse(localStorage.getItem('user'))
+
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
       localStorage.setItem('user', JSON.stringify({ ...user, ...data }))
-      
+
       alert('✅ Profile updated successfully!')
     } catch (error) {
       console.error('Failed to update profile:', error)
@@ -112,23 +111,38 @@ export default function ProfilePage() {
     }
   }
 
+  const handleRemovePhoto = async () => {
+    if (!confirm('Remove profile photo?')) return
+    try {
+      await api.put('/users/profile', { profile_photo_url: null })
+      setProfile(prev => ({ ...prev, profile_photo_url: null }))
+      setEditedProfile(prev => ({ ...prev, profile_photo_url: null }))
+      const user = JSON.parse(localStorage.getItem('user') || '{}')
+      localStorage.setItem('user', JSON.stringify({ ...user, profile_photo_url: null }))
+      alert('Photo removed')
+    } catch (error) {
+      alert('Failed to remove photo')
+    }
+  }
+
   const handleChange = (field, value) => {
-    setEditedProfile(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    setEditedProfile(prev => ({ ...prev, [field]: value }))
   }
 
   if (loading) return <Loading />
-  if (!profile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Profile not found</div>
+  if (!profile) return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      Profile not found
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-black text-white pt-20 px-4 pb-12">
       <div className="max-w-4xl mx-auto">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold">My Profile</h1>
-          
           {!editing ? (
             <button
               onClick={handleEdit}
@@ -162,14 +176,14 @@ export default function ProfilePage() {
         {/* Profile Photo Section */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6">
           <h2 className="text-2xl font-bold mb-6">Profile Photo</h2>
-          
           <div className="flex items-center gap-8">
-            {/* Avatar Display */}
+
+            {/* Avatar */}
             <div className="relative">
               {profile?.profile_photo_url ? (
-                <img 
-                  src={profile.profile_photo_url} 
-                  alt="Profile" 
+                <img
+                  src={profile.profile_photo_url}
+                  alt="Profile"
                   className="w-32 h-32 rounded-full object-cover border-4 border-blue-600"
                 />
               ) : (
@@ -177,9 +191,9 @@ export default function ProfilePage() {
                   {profile?.full_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || 'U'}
                 </div>
               )}
-              
-              {/* Upload Button Overlay */}
-              <label 
+
+              {/* Camera overlay button */}
+              <label
                 htmlFor="photo-upload"
                 className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 p-3 rounded-full cursor-pointer shadow-lg transition-all hover:scale-110"
               >
@@ -187,7 +201,7 @@ export default function ProfilePage() {
                 <input
                   id="photo-upload"
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.gif"
                   onChange={handlePhotoUpload}
                   disabled={uploading}
                   className="hidden"
@@ -198,67 +212,55 @@ export default function ProfilePage() {
             {/* Upload Info */}
             <div className="flex-1">
               <h3 className="text-lg font-bold mb-2">Upload Profile Picture</h3>
-              <p className="text-gray-400 text-sm mb-4">
-                JPG, PNG or GIF • Max 5MB
-              </p>
-              
-              {/* Alternative Upload Button */}
-              <label 
-                htmlFor="photo-upload-alt"
-                className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  uploading 
-                    ? 'bg-blue-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                }`}
-              >
-                {uploading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    Choose Photo
-                  </>
-                )}
-                <input
-                  id="photo-upload-alt"
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
+              <p className="text-gray-400 text-sm mb-4">JPG, PNG or GIF • Max 5MB</p>
 
-              {profile?.profile_photo_url && (
-                <button
-                  onClick={async () => {
-                    if (confirm('Remove profile photo?')) {
-                      try {
-                        await api.put('/users/profile', { profile_photo_url: null })
-                        setProfile({ ...profile, profile_photo_url: null })
-                        setEditedProfile({ ...editedProfile, profile_photo_url: null })
-                        alert('Photo removed')
-                      } catch (error) {
-                        alert('Failed to remove photo')
-                      }
-                    }
-                  }}
-                  className="ml-4 text-red-400 hover:text-red-300 text-sm font-medium"
+              <div className="flex items-center gap-4">
+                <label
+                  htmlFor="photo-upload-alt"
+                  className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                    uploading
+                      ? 'bg-blue-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                  }`}
                 >
-                  Remove Photo
-                </button>
-              )}
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5" />
+                      Choose Photo
+                    </>
+                  )}
+                  <input
+                    id="photo-upload-alt"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.gif"
+                    onChange={handlePhotoUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+
+                {profile?.profile_photo_url && (
+                  <button
+                    onClick={handleRemovePhoto}
+                    className="text-red-400 hover:text-red-300 text-sm font-medium"
+                  >
+                    Remove Photo
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Profile Content */}
+        {/* Profile Fields */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
-          {/* Profile Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
             {/* Username */}
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -267,7 +269,7 @@ export default function ProfilePage() {
               </label>
               <input
                 type="text"
-                value={editing ? editedProfile.username : profile.username}
+                value={profile.username}
                 disabled
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white opacity-60 cursor-not-allowed"
               />
@@ -276,9 +278,7 @@ export default function ProfilePage() {
 
             {/* Full Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Full Name
-              </label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Full Name</label>
               <input
                 type="text"
                 value={editing ? editedProfile.full_name || '' : profile.full_name || ''}
@@ -297,7 +297,7 @@ export default function ProfilePage() {
               </label>
               <input
                 type="email"
-                value={editing ? editedProfile.email : profile.email}
+                value={editing ? editedProfile.email || '' : profile.email || ''}
                 onChange={(e) => handleChange('email', e.target.value)}
                 disabled={!editing}
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white disabled:opacity-60 focus:outline-none focus:border-blue-500"
@@ -320,13 +320,11 @@ export default function ProfilePage() {
               />
             </div>
 
-            {/* Department (for students) */}
+            {/* Department & Year (students only) */}
             {profile.role === 'student' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Department
-                  </label>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Department</label>
                   <select
                     value={editing ? editedProfile.department || '' : profile.department || ''}
                     onChange={(e) => handleChange('department', e.target.value)}
@@ -384,9 +382,7 @@ export default function ProfilePage() {
 
             {/* Bio */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Bio
-              </label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Bio</label>
               <textarea
                 value={editing ? editedProfile.bio || '' : profile.bio || ''}
                 onChange={(e) => handleChange('bio', e.target.value)}
@@ -404,9 +400,10 @@ export default function ProfilePage() {
               </label>
               <input
                 type="text"
-                value={editing 
-                  ? (Array.isArray(editedProfile.interests) ? editedProfile.interests.join(', ') : editedProfile.interests || '')
-                  : (Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests || '')
+                value={
+                  editing
+                    ? (Array.isArray(editedProfile.interests) ? editedProfile.interests.join(', ') : editedProfile.interests || '')
+                    : (Array.isArray(profile.interests) ? profile.interests.join(', ') : profile.interests || '')
                 }
                 onChange={(e) => handleChange('interests', e.target.value.split(',').map(i => i.trim()))}
                 disabled={!editing}
@@ -428,13 +425,22 @@ export default function ProfilePage() {
                 <span className="text-gray-400">Member Since:</span>
                 <p className="text-white mt-1">{new Date(profile.created_at).toLocaleDateString()}</p>
               </div>
-              <div>
-                <span className="text-gray-400">Last Updated:</span>
-                <p className="text-white mt-1">{new Date(profile.updated_at).toLocaleDateString()}</p>
-              </div>
+              {profile.updated_at && (
+                <div>
+                  <span className="text-gray-400">Last Updated:</span>
+                  <p className="text-white mt-1">{new Date(profile.updated_at).toLocaleDateString()}</p>
+                </div>
+              )}
+              {profile.is_committee && (
+                <div>
+                  <span className="text-gray-400">Committee Post:</span>
+                  <p className="text-white mt-1">{profile.committee_post || 'Member'}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
       </div>
     </div>
   )
