@@ -15,15 +15,16 @@ export default function MyProjectsPage() {
   }, [])
 
   const fetchMyProjects = async () => {
-    try {
-      const data = await api.get('/projects/my-projects')
-      setProjects(data)
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const data = await api.get('/projects/my-projects')
+    setProjects(Array.isArray(data) ? data : [])  // ← add guard
+  } catch (error) {
+    console.error('Failed to fetch projects:', error)
+  } finally {
+    setLoading(false)
   }
+}
+
 
   const filteredProjects = projects.filter(project => {
     if (filter === 'ongoing') return project.status === 'ongoing'
