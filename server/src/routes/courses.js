@@ -17,7 +17,7 @@ router.get('/videos', async (req, res) => {
       .from('course_videos')
       .select(`
         *,
-        uploader:uploaded_by(id, username, full_name, profile_photo_url)
+        uploader:uploaded_by(id, username, full_name)
       `)
       .order('created_at', { ascending: false });
 
