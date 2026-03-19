@@ -18,24 +18,24 @@ export default function FacultyDashboard() {
   }, [])
 
   const fetchData = async () => {
-    try {
-      const [profileRes, announcementsRes, projectsRes, quizzesRes] = await Promise.all([
-        api.get('/users/me'),
-        api.get('/announcements'),
-        api.get('/projects?status=pending'),
-        api.get('/quizzes?status=draft')
-      ])
-      
-      setProfile(profileRes.data)
-      setAnnouncements(announcementsRes.data.slice(0, 5))
-      setPendingProjects(projectsRes.data)
-      setPendingQuizzes(quizzesRes.data.filter(q => q.created_by === profileRes.data.id))
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const [profileRes, announcementsRes, projectsRes, quizzesRes] = await Promise.all([
+      api.get('/users/me'),
+      api.get('/announcements'),
+      api.get('/projects?status=pending'),
+      api.get('/quizzes?status=draft')
+    ])
+    setProfile(profileRes || null)                                          // ← no .data
+    setAnnouncements((Array.isArray(announcementsRes) ? announcementsRes : []).slice(0, 5))
+    setPendingProjects(Array.isArray(projectsRes) ? projectsRes : [])
+    const quizzes = Array.isArray(quizzesRes) ? quizzesRes : []
+    setPendingQuizzes(quizzes.filter(q => q.created_by === profileRes?.id))
+  } catch (error) {
+    console.error('Failed to fetch data:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleApproveProject = async (projectId) => {
     try {
