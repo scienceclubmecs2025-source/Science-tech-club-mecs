@@ -65,21 +65,17 @@ export default function MessagesPage() {
   try {
     const [friendsRes, usersRes, sentRes, receivedRes] = await Promise.all([
       api.get('/friends/list'),
-      api.get('/friends/users'),  
+      api.get('/friends/users'),
       api.get('/friends/requests/sent'),
       api.get('/friends/requests/received')
     ])
-    
-    setFriends(friendsRes.data || [])
-    setAllUsers(usersRes.data || [])
-    setSentRequests(sentRes.data || [])
-    setReceivedRequests(receivedRes.data || [])
+    setFriends(Array.isArray(friendsRes) ? friendsRes : [])          // ← no .data
+    setAllUsers(Array.isArray(usersRes) ? usersRes : [])
+    setSentRequests(Array.isArray(sentRes) ? sentRes : [])
+    setReceivedRequests(Array.isArray(receivedRes) ? receivedRes : [])
   } catch (error) {
     console.error('Failed to fetch friend data:', error)
-    setFriends([])
-    setAllUsers([])
-    setSentRequests([])
-    setReceivedRequests([])
+    setFriends([]); setAllUsers([]); setSentRequests([]); setReceivedRequests([])
   }
 }
 
