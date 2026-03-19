@@ -19,22 +19,23 @@ export default function RepresentativeDashboard() {
   }, [])
 
   const fetchData = async () => {
-    setLoading(true)
-    try {
-      const [permissionsRes, usersRes] = await Promise.all([
-        api.get('/permissions'),
-        api.get('/friends/users').catch(() => ({ data: [] }))
-      ])
-
-      setPermissions(permissionsRes.data || [])
-      // Filter for potential guides (committee members, faculty)
-      setGuides(usersRes.data.filter(u => u.is_committee || u.role === 'faculty') || [])
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
+  setLoading(true)
+  try {
+    const [permissionsRes, usersRes] = await Promise.all([
+      api.get('/permissions'),
+      api.get('/friends/users').catch(() => [])
+    ])
+    const permissions = Array.isArray(permissionsRes) ? permissionsRes : []   // ← no .data
+    const users = Array.isArray(usersRes) ? usersRes : []
+    setPermissions(permissions)
+    setGuides(users.filter(u => u.is_committee || u.role === 'faculty'))
+  } catch (error) {
+    console.error('Failed to fetch data:', error)
+  } finally {
+    setLoading(false)
   }
+}
+
 
   const handleApprove = async (id) => {
     try {
