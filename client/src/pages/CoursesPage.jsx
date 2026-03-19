@@ -32,7 +32,7 @@ export default function CoursesPage() {
 
   const fetchVideos = async () => {
     try {
-      const res = await api.get('/courses/videos')       // ✅ FIX 1
+      const res = await api.getArray('/courses/videos')       // ✅ FIX 1
       setVideos(res.data || [])
     } catch (error) {
       console.error('Failed to fetch videos:', error)
@@ -43,7 +43,7 @@ export default function CoursesPage() {
 
   const fetchComments = async (videoId) => {
     try {
-      const res = await api.get(`/courses/videos/${videoId}/comments`)   // ✅ FIX 2
+      const res = await api.getArray(`/courses/videos/${videoId}/comments`)   // ✅ FIX 2
       setComments(res.data || [])
     } catch (error) {
       console.error('Failed to fetch comments:', error)
