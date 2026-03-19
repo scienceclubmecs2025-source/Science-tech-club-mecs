@@ -36,7 +36,8 @@ router.get('/videos/:id', async (req, res) => {
       .from('course_videos')
       .select(`
         *,
-        uploader:uploaded_by(id, username, full_name, profile_photo_url)
+        uploader:uploaded_by(id, username, full_name)
+
       `)
       .eq('id', req.params.id)
       .single();
