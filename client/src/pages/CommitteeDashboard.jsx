@@ -20,34 +20,36 @@ export default function CommitteeDashboard() {
   }, [])
 
   const fetchData = async () => {
-    try {
-      const [profileRes, eventsRes, announcementsRes, queriesRes, usersRes] = await Promise.all([
-        api.get('/users/me'),
-        api.get('/events'),
-        api.get('/announcements'),
-        api.get('/queries'),
-        api.get('/users')
-      ])
-      
-      setProfile(profileRes.data)
-      setEvents(eventsRes.data)
-      setAnnouncements(announcementsRes.data)
-      setQueries(queriesRes.data.filter(q => q.status === 'pending'))
-      setTeamMembers(usersRes.data.filter(u => u.is_committee))
-      
-      // Calculate stats
-      setStats({
-        totalEvents: eventsRes.data.length,
-        pendingEvents: eventsRes.data.filter(e => e.status === 'draft').length,
-        totalQueries: queriesRes.data.length,
-        pendingQueries: queriesRes.data.filter(q => q.status === 'pending').length
-      })
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const [profileRes, eventsRes, announcementsRes, queriesRes, usersRes] = await Promise.all([
+      api.get('/users/me'),
+      api.get('/events'),
+      api.get('/announcements'),
+      api.get('/queries'),
+      api.get('/users')
+    ])
+    const events = Array.isArray(eventsRes) ? eventsRes : []
+    const queries = Array.isArray(queriesRes) ? queriesRes : []
+    const users = Array.isArray(usersRes) ? usersRes : []
+    const announcements = Array.isArray(announcementsRes) ? announcementsRes : []
+
+    setProfile(profileRes || null)                                     // ← no .data
+    setEvents(events)
+    setAnnouncements(announcements)
+    setQueries(queries.filter(q => q.status === 'pending'))
+    setTeamMembers(users.filter(u => u.is_committee))
+    setStats({
+      totalEvents: events.length,
+      pendingEvents: events.filter(e => e.status === 'draft').length,
+      totalQueries: queries.length,
+      pendingQueries: queries.filter(q => q.status === 'pending').length
+    })
+  } catch (error) {
+    console.error('Failed to fetch data:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const getCommitteeRole = (post) => {
     if (!post) return null
