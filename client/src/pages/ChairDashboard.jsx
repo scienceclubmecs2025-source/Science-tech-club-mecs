@@ -14,34 +14,32 @@ export default function ChairDashboard() {
     fetchDashboardData()
   }, [])
 
-  const fetchDashboardData = async () => {
-    setLoading(true)
-    try {
-      const [statsRes, permissionsRes, eventsRes] = await Promise.all([
-        api.get('/users').catch(() => ({ data: [] })),
-        api.get('/permissions').catch(() => ({ data: [] })),
-        api.get('/events').catch(() => ({ data: [] }))
-      ])
+const fetchDashboardData = async () => {
+  setLoading(true)
+  try {
+    const [statsRes, permissionsRes, eventsRes] = await Promise.all([
+      api.get('/users').catch(() => []),
+      api.get('/permissions').catch(() => []),
+      api.get('/events').catch(() => [])
+    ])
+    const users = Array.isArray(statsRes) ? statsRes : []           // ← no .data
+    const permissions = Array.isArray(permissionsRes) ? permissionsRes : []
+    const events = Array.isArray(eventsRes) ? eventsRes : []
 
-      const users = statsRes.data || []
-      const permissions = permissionsRes.data || []
-      const events = eventsRes.data || []
-
-      setStats({
-        total_members: users.length,
-        committee_members: users.filter(u => u.is_committee).length,
-        pending_requests: permissions.filter(p => p.status === 'pending').length,
-        upcoming_events: events.filter(e => e.status === 'upcoming').length
-      })
-
-      setPendingApprovals(permissions.filter(p => p.status === 'pending').slice(0, 5))
-      
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
-    } finally {
-      setLoading(false)
-    }
+    setStats({
+      total_members: users.length,
+      committee_members: users.filter(u => u.is_committee).length,
+      pending_requests: permissions.filter(p => p.status === 'pending').length,
+      upcoming_events: events.filter(e => e.status === 'upcoming').length
+    })
+    setPendingApprovals(permissions.filter(p => p.status === 'pending').slice(0, 5))
+  } catch (error) {
+    console.error('Failed to fetch dashboard data:', error)
+  } finally {
+    setLoading(false)
   }
+}
+
 
   const promoteToCommittee = async (userId, role, department = null) => {
     try {
