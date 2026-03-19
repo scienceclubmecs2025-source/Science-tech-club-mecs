@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { 
-  Users, BookOpen, Upload, UserPlus, Key, Trash2, GraduationCap,
+  Users, BookOpen, Upload, UserPlus, Trash2, GraduationCap,
   Settings, Calendar, Award, FileText, Bell, Download, Shield,
   Database, Activity, UserCheck, Check
 } from 'lucide-react'
@@ -18,10 +18,12 @@ export default function AdminPanel() {
   const [reportFormats, setReportFormats] = useState([])
   const [generatingReport, setGeneratingReport] = useState(false)
 
-  const [newStudent, setNewStudent] = useState({ 
-    username: '', email: '', department: '', year: 1, rollnumber: '', dob: '' 
+  const [newStudent, setNewStudent] = useState({
+    unique_id: '', name: '', roll_number: '', branch: '', year: 1,
+    address: '', phone: '', email: '', guardian_name: '',
+    guardian_number: '', field_of_interest: ''
   })
-  const [newFaculty, setNewFaculty] = useState({ 
+  const [newFaculty, setNewFaculty] = useState({
     username: '', email: '', department: '', employmentid: ''
   })
   const [config, setConfig] = useState({
@@ -32,8 +34,8 @@ export default function AdminPanel() {
     primary_color: '#3b82f6',
     watermark_opacity: '0.25'
   })
-  const [newAnnouncement, setNewAnnouncement] = useState({ 
-    title: '', content: '', target_audience: 'all' 
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: '', content: '', target_audience: 'all'
   })
   const [reportFormData, setReportFormData] = useState({
     title: '', academic_year: '', file: null
@@ -41,9 +43,7 @@ export default function AdminPanel() {
   const [uploadingReport, setUploadingReport] = useState(false)
 
   const user = JSON.parse(localStorage.getItem('user'))
-
   const departments = ['CSE', 'AIML', 'CSD', 'IT', 'CME', 'Civil', 'Mech', 'ECE', 'EEE']
-  
   const committeePosts = [
     'Chair', 'Vice Chair', 'Secretary', 'Vice Secretary',
     'CSE Head', 'CSE Vice Head', 'AIML Head', 'AIML Vice Head',
@@ -64,7 +64,6 @@ export default function AdminPanel() {
     if (activeTab === 'reports') fetchReportFormats()
   }, [activeTab])
 
-  // ✅ FIXED: use response.data not response directly
   const fetchDashboard = async () => {
     try {
       const [usersRes, evtsRes, projsRes] = await Promise.all([
@@ -94,74 +93,55 @@ export default function AdminPanel() {
     try {
       const response = await api.get('/users')
       setAllUsers(Array.isArray(response.data) ? response.data : [])
-    } catch (error) {
-      console.error('Failed to fetch users:', error)
-    }
+    } catch (error) { console.error('Failed to fetch users:', error) }
   }
 
   const fetchEvents = async () => {
     try {
       const response = await api.get('/events')
       setEvents(Array.isArray(response.data) ? response.data : [])
-    } catch (error) {
-      console.error('Failed to fetch events:', error)
-    }
+    } catch (error) { console.error('Failed to fetch events:', error) }
   }
 
   const fetchProjects = async () => {
     try {
       const response = await api.get('/projects')
       setProjects(Array.isArray(response.data) ? response.data : [])
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    }
+    } catch (error) { console.error('Failed to fetch projects:', error) }
   }
 
   const fetchAnnouncements = async () => {
     try {
       const response = await api.get('/announcements')
       setAnnouncements(Array.isArray(response.data) ? response.data : [])
-    } catch (error) {
-      console.error('Failed to fetch announcements:', error)
-    }
+    } catch (error) { console.error('Failed to fetch announcements:', error) }
   }
 
   const fetchConfig = async () => {
     try {
       const response = await api.get('/config')
       setConfig(prev => ({ ...prev, ...(response.data || {}) }))
-    } catch (error) {
-      console.error('Failed to fetch config:', error)
-    }
+    } catch (error) { console.error('Failed to fetch config:', error) }
   }
 
   const fetchReportFormats = async () => {
     try {
       const response = await api.get('/reports')
       setReportFormats(Array.isArray(response.data) ? response.data : [])
-    } catch (error) {
-      console.error('Failed to fetch formats:', error)
-    }
+    } catch (error) { console.error('Failed to fetch formats:', error) }
   }
 
   const handleAddStudent = async (e) => {
     e.preventDefault()
     try {
-      const dobParts = newStudent.dob.split('-')
-      const username = `${newStudent.username}${dobParts[2]}${dobParts[1]}${dobParts[0].slice(-2)}`
-      await api.post('/admin/add-student', {
-        username,
-        email: newStudent.email,
-        password: newStudent.rollnumber,
-        roll_number: newStudent.rollnumber,
-        department: newStudent.department,
-        year: newStudent.year,
-        dob: newStudent.dob
-      })
+      await api.post('/admin/add-student', newStudent)
       alert('Student added successfully')
-      setNewStudent({ username: '', email: '', department: '', year: 1, rollnumber: '', dob: '' })
+      setNewStudent({
+        unique_id: '', name: '', roll_number: '', branch: '', year: 1,
+        address: '', phone: '', email: '', guardian_name: '',
+        guardian_number: '', field_of_interest: ''
+      })
       fetchDashboard()
-      fetchAllUsers()
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to add student')
     }
@@ -192,22 +172,18 @@ export default function AdminPanel() {
       await api.put(`/users/${userId}/role`, { role: newRole })
       alert('Role updated successfully')
       fetchAllUsers()
-    } catch (error) {
-      alert('Failed to update role')
-    }
+    } catch (error) { alert('Failed to update role') }
   }
 
   const handleAssignCommitteePost = async (userId, post) => {
     try {
-      await api.put(`/users/${userId}`, { 
+      await api.put(`/users/${userId}`, {
         committee_post: post,
         is_committee: post !== null && post !== ''
       })
       alert('Committee post assigned')
       fetchAllUsers()
-    } catch (error) {
-      alert('Failed to assign post')
-    }
+    } catch (error) { alert('Failed to assign post') }
   }
 
   const handleGraduateStudents = async () => {
@@ -224,9 +200,7 @@ export default function AdminPanel() {
       alert('All students graduated!')
       fetchAllUsers()
       fetchDashboard()
-    } catch (error) {
-      alert('Failed to graduate students')
-    }
+    } catch (error) { alert('Failed to graduate students') }
   }
 
   const handleDeleteUser = async (userId, username) => {
@@ -236,9 +210,7 @@ export default function AdminPanel() {
       alert('User deleted')
       fetchAllUsers()
       fetchDashboard()
-    } catch (error) {
-      alert('Failed to delete user')
-    }
+    } catch (error) { alert('Failed to delete user') }
   }
 
   const handleUploadStudents = async (e) => {
@@ -247,10 +219,10 @@ export default function AdminPanel() {
     const formData = new FormData()
     formData.append('file', file)
     try {
-      await api.post('/admin/upload-students', formData, {
+      const { data } = await api.post('/admin/upload-students', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-      alert('Students uploaded successfully')
+      alert(`${data.message}\n${data.errors?.length ? 'Errors:\n' + data.errors.join('\n') : ''}`)
       fetchDashboard()
       fetchAllUsers()
       e.target.value = null
@@ -265,10 +237,10 @@ export default function AdminPanel() {
     const formData = new FormData()
     formData.append('file', file)
     try {
-      await api.post('/admin/upload-faculty', formData, {
+      const { data } = await api.post('/admin/upload-faculty', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-      alert('Faculty uploaded successfully')
+      alert(`${data.message}`)
       fetchDashboard()
       fetchAllUsers()
       e.target.value = null
@@ -284,9 +256,7 @@ export default function AdminPanel() {
       alert('Announcement created successfully')
       setNewAnnouncement({ title: '', content: '', target_audience: 'all' })
       fetchAnnouncements()
-    } catch (error) {
-      alert('Failed to create announcement')
-    }
+    } catch (error) { alert('Failed to create announcement') }
   }
 
   const handleDeleteAnnouncement = async (id) => {
@@ -295,9 +265,7 @@ export default function AdminPanel() {
       await api.delete(`/announcements/${id}`)
       alert('Announcement deleted')
       fetchAnnouncements()
-    } catch (error) {
-      alert('Failed to delete announcement')
-    }
+    } catch (error) { alert('Failed to delete announcement') }
   }
 
   const handleApproveEvent = async (eventId) => {
@@ -305,9 +273,7 @@ export default function AdminPanel() {
       await api.put(`/events/${eventId}/status`, { status: 'approved' })
       alert('Event approved')
       fetchEvents()
-    } catch (error) {
-      alert('Failed to approve event')
-    }
+    } catch (error) { alert('Failed to approve event') }
   }
 
   const handleConfigSubmit = async (e) => {
@@ -315,9 +281,7 @@ export default function AdminPanel() {
     try {
       await api.put('/config', config)
       alert('Configuration updated successfully!')
-    } catch (error) {
-      alert('Failed to update configuration')
-    }
+    } catch (error) { alert('Failed to update configuration') }
   }
 
   const handleUploadReport = async (e) => {
@@ -348,9 +312,7 @@ export default function AdminPanel() {
       await api.delete(`/reports/${id}`)
       alert('Format deleted successfully')
       fetchReportFormats()
-    } catch (error) {
-      alert('Failed to delete format')
-    }
+    } catch (error) { alert('Failed to delete format') }
   }
 
   const handleActivateReport = async (id) => {
@@ -358,12 +320,9 @@ export default function AdminPanel() {
       await api.put(`/reports/${id}/activate`)
       alert('Format activated successfully')
       fetchReportFormats()
-    } catch (error) {
-      alert('Failed to activate format')
-    }
+    } catch (error) { alert('Failed to activate format') }
   }
 
-  // ✅ FIXED: use response.data
   const handleGenerateReport = async () => {
     setGeneratingReport(true)
     try {
@@ -396,9 +355,17 @@ export default function AdminPanel() {
   const downloadCSVTemplate = (type) => {
     let csvContent = ''
     if (type === 'students') {
-      csvContent = 'surname,email,roll_number,dob,department,year\nMathsa,mathsa@example.com,21R11A0501,2005-06-07,CSE,1\nKumar,kumar@example.com,21R11A0502,2004-12-15,ECE,2'
+      csvContent = [
+        'UNIQUE_ID,NAME,ROLL-NO,BRANCH,YEAR,ADDRESS,PHONE NO,EMAIL ID,FATHER/GUARDIAN NAME,FATHER/GUARDIAN NUMBER,FIELD OF INTEREST',
+        '2024CSE001,Ravi Kumar,21R11A0501,CSE,1,Hyderabad,9876543210,ravi@example.com,Suresh Kumar,9123456780,AI & ML',
+        '2024ECE002,Priya Sharma,21R11B0502,ECE,2,Vizag,9876543211,priya@example.com,Ramesh Sharma,9123456781,Robotics'
+      ].join('\n')
     } else {
-      csvContent = 'email,employment_id,department\ndrsmith@college.edu,EMP12345,CSE\nprofjones@college.edu,EMP12346,ECE'
+      csvContent = [
+        'email,employment_id,department',
+        'drsmith@college.edu,EMP12345,CSE',
+        'profjones@college.edu,EMP12346,ECE'
+      ].join('\n')
     }
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -470,34 +437,30 @@ export default function AdminPanel() {
         <div className="bg-gray-900 rounded-xl border border-gray-800">
           <div className="flex border-b border-gray-800 overflow-x-auto scrollbar-hide">
             {[
-              { id: 'overview', label: 'Overview', icon: Settings },
-              { id: 'users', label: 'Manage Users', icon: Users },
-              { id: 'committee', label: 'Committee', icon: Award },
-              { id: 'announcements', label: 'Announcements', icon: Bell },
-              { id: 'events', label: 'Events', icon: Calendar },
-              { id: 'projects', label: 'Projects', icon: FileText },
-              { id: 'reports', label: 'Report Formats', icon: Download },
-              { id: 'add-student', label: 'Add Student', icon: UserPlus },
-              { id: 'add-faculty', label: 'Add Faculty', icon: UserPlus },
-              { id: 'upload', label: 'Upload CSV', icon: Upload },
-              { id: 'config', label: 'Site Config', icon: Settings }
+              { id: 'overview',     label: 'Overview',       icon: Settings  },
+              { id: 'users',        label: 'Manage Users',   icon: Users     },
+              { id: 'committee',    label: 'Committee',      icon: Award     },
+              { id: 'announcements',label: 'Announcements',  icon: Bell      },
+              { id: 'events',       label: 'Events',         icon: Calendar  },
+              { id: 'projects',     label: 'Projects',       icon: FileText  },
+              { id: 'reports',      label: 'Report Formats', icon: Download  },
+              { id: 'add-student',  label: 'Add Student',    icon: UserPlus  },
+              { id: 'add-faculty',  label: 'Add Faculty',    icon: UserPlus  },
+              { id: 'upload',       label: 'Upload CSV',     icon: Upload    },
+              { id: 'config',       label: 'Site Config',    icon: Settings  }
             ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-6 py-4 font-medium whitespace-nowrap ${
                   activeTab === tab.id ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
+                }`}>
+                <tab.icon className="w-4 h-4" />{tab.label}
               </button>
             ))}
           </div>
 
           <div className="p-6">
 
-            {/* Overview Tab */}
+            {/* Overview */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
@@ -527,18 +490,12 @@ export default function AdminPanel() {
                 <div className="bg-gray-800 border border-gray-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
                   <div className="space-y-3">
-                    <button
-                      onClick={handleGraduateStudents}
-                      className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-3 rounded-lg transition"
-                    >
-                      <GraduationCap className="w-5 h-5" />
-                      Graduate All Students
+                    <button onClick={handleGraduateStudents}
+                      className="w-full flex items-center gap-2 bg-green-600 hover:bg-green-700 px-4 py-3 rounded-lg transition">
+                      <GraduationCap className="w-5 h-5" /> Graduate All Students
                     </button>
-                    <button
-                      onClick={handleGenerateReport}
-                      disabled={generatingReport}
-                      className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <button onClick={handleGenerateReport} disabled={generatingReport}
+                      className="w-full flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                       <FileText className="w-5 h-5" />
                       {generatingReport ? 'Generating...' : 'Generate Statistics Report'}
                     </button>
@@ -547,7 +504,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Users Tab */}
+            {/* Users */}
             {activeTab === 'users' && (
               <div>
                 <div className="flex items-center justify-between mb-6">
@@ -585,11 +542,8 @@ export default function AdminPanel() {
                           </td>
                           <td className="py-3 px-4 text-gray-400">{u.email}</td>
                           <td className="py-3 px-4">
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm"
-                            >
+                            <select value={u.role} onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                              className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-sm">
                               <option value="student">Student</option>
                               <option value="faculty">Faculty</option>
                               <option value="admin">Admin</option>
@@ -598,10 +552,8 @@ export default function AdminPanel() {
                           <td className="py-3 px-4 text-gray-300">{u.department || '-'}</td>
                           <td className="py-3 px-4 text-gray-300">{u.year || '-'}</td>
                           <td className="py-3 px-4">
-                            <button
-                              onClick={() => handleDeleteUser(u.id, u.username)}
-                              className="p-2 bg-red-600 hover:bg-red-700 rounded transition"
-                            >
+                            <button onClick={() => handleDeleteUser(u.id, u.username)}
+                              className="p-2 bg-red-600 hover:bg-red-700 rounded transition">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </td>
@@ -613,7 +565,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Committee Tab */}
+            {/* Committee */}
             {activeTab === 'committee' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Committee Management</h2>
@@ -633,20 +585,16 @@ export default function AdminPanel() {
                           <td className="py-3 px-4 text-white">{u.username}</td>
                           <td className="py-3 px-4 text-gray-400 text-sm">{u.email}</td>
                           <td className="py-3 px-4 text-gray-400">
-                            {u.committee_post ? (
-                              <span className="px-2 py-1 bg-green-600 rounded text-sm">{u.committee_post}</span>
-                            ) : 'None'}
+                            {u.committee_post
+                              ? <span className="px-2 py-1 bg-green-600 rounded text-sm">{u.committee_post}</span>
+                              : 'None'}
                           </td>
                           <td className="py-3 px-4">
-                            <select
-                              value={u.committee_post || ''}
+                            <select value={u.committee_post || ''}
                               onChange={(e) => handleAssignCommitteePost(u.id, e.target.value || null)}
-                              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm"
-                            >
+                              className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white text-sm">
                               <option value="">None</option>
-                              {committeePosts.map(post => (
-                                <option key={post} value={post}>{post}</option>
-                              ))}
+                              {committeePosts.map(post => <option key={post} value={post}>{post}</option>)}
                             </select>
                           </td>
                         </tr>
@@ -657,7 +605,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Announcements Tab */}
+            {/* Announcements */}
             {activeTab === 'announcements' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Manage Announcements</h2>
@@ -712,7 +660,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Events Tab */}
+            {/* Events */}
             {activeTab === 'events' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Events Management</h2>
@@ -738,7 +686,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Projects Tab */}
+            {/* Projects */}
             {activeTab === 'projects' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Projects Overview</h2>
@@ -757,7 +705,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Reports Tab */}
+            {/* Reports */}
             {activeTab === 'reports' && (
               <div>
                 <h2 className="text-2xl font-bold text-white mb-6">Project Report Formats</h2>
@@ -847,52 +795,46 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Add Student Tab */}
+            {/* Add Student */}
             {activeTab === 'add-student' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Add New Student</h2>
-                <form onSubmit={handleAddStudent} className="space-y-4 max-w-2xl">
+                <form onSubmit={handleAddStudent} className="space-y-4 max-w-3xl">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Surname</label>
-                      <input type="text" value={newStudent.username}
-                        onChange={(e) => setNewStudent({ ...newStudent, username: e.target.value })}
-                        placeholder="Mathsa" className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
-                      <p className="text-xs text-gray-500 mt-1">Will generate username</p>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Unique ID</label>
+                      <input type="text" value={newStudent.unique_id}
+                        onChange={(e) => setNewStudent({ ...newStudent, unique_id: e.target.value })}
+                        placeholder="e.g., 2024CSE001"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Date of Birth</label>
-                      <input type="date" value={newStudent.dob}
-                        onChange={(e) => setNewStudent({ ...newStudent, dob: e.target.value })}
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                      <input type="text" value={newStudent.name}
+                        onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                        placeholder="e.g., Ravi Kumar"
                         className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
-                      <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DD</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">Roll Number</label>
-                      <input type="text" value={newStudent.rollnumber}
-                        onChange={(e) => setNewStudent({ ...newStudent, rollnumber: e.target.value })}
-                        placeholder="21R11A0501" className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
-                      <p className="text-xs text-gray-500 mt-1">Will be used as password</p>
+                      <input type="text" value={newStudent.roll_number}
+                        onChange={(e) => setNewStudent({ ...newStudent, roll_number: e.target.value })}
+                        placeholder="e.g., 21R11A0501"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
-                      <input type="email" value={newStudent.email}
-                        onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">Department</label>
-                      <select value={newStudent.department}
-                        onChange={(e) => setNewStudent({ ...newStudent, department: e.target.value })}
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Branch</label>
+                      <select value={newStudent.branch}
+                        onChange={(e) => setNewStudent({ ...newStudent, branch: e.target.value })}
                         className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required>
-                        <option value="">Select Department</option>
+                        <option value="">Select Branch</option>
                         {departments.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                       </select>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">Year</label>
                       <select value={newStudent.year}
@@ -904,15 +846,64 @@ export default function AdminPanel() {
                         <option value={4}>4th Year</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Email ID</label>
+                      <input type="email" value={newStudent.email}
+                        onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                        placeholder="student@example.com"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
+                      <p className="text-xs text-gray-500 mt-1">Username = part before @</p>
+                    </div>
                   </div>
-                  <button type="submit" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Phone No</label>
+                      <input type="text" value={newStudent.phone}
+                        onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
+                        placeholder="9876543210"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Address</label>
+                      <input type="text" value={newStudent.address}
+                        onChange={(e) => setNewStudent({ ...newStudent, address: e.target.value })}
+                        placeholder="City, State"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Father/Guardian Name</label>
+                      <input type="text" value={newStudent.guardian_name}
+                        onChange={(e) => setNewStudent({ ...newStudent, guardian_name: e.target.value })}
+                        placeholder="Guardian Name"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Father/Guardian Number</label>
+                      <input type="text" value={newStudent.guardian_number}
+                        onChange={(e) => setNewStudent({ ...newStudent, guardian_number: e.target.value })}
+                        placeholder="9876543210"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
+                      <p className="text-xs text-gray-500 mt-1">Password = GuardianNumber@UniqueID</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Field of Interest</label>
+                    <input type="text" value={newStudent.field_of_interest}
+                      onChange={(e) => setNewStudent({ ...newStudent, field_of_interest: e.target.value })}
+                      placeholder="e.g., AI, Web Dev, Robotics"
+                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" />
+                  </div>
+                  <button type="submit"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
                     <UserPlus className="w-5 h-5" /> Add Student
                   </button>
                 </form>
               </div>
             )}
 
-            {/* Add Faculty Tab */}
+            {/* Add Faculty */}
             {activeTab === 'add-faculty' && (
               <div>
                 <h2 className="text-xl font-bold text-white mb-6">Add New Faculty</h2>
@@ -922,14 +913,16 @@ export default function AdminPanel() {
                       <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
                       <input type="email" value={newFaculty.email}
                         onChange={(e) => setNewFaculty({ ...newFaculty, email: e.target.value })}
-                        placeholder="faculty@example.com" className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
+                        placeholder="faculty@example.com"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
                       <p className="text-xs text-gray-500 mt-1">Username will be generated</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">Employment ID</label>
                       <input type="text" value={newFaculty.employmentid}
                         onChange={(e) => setNewFaculty({ ...newFaculty, employmentid: e.target.value })}
-                        placeholder="EMP12345" className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
+                        placeholder="EMP12345"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white" required />
                       <p className="text-xs text-gray-500 mt-1">Will be used as password</p>
                     </div>
                   </div>
@@ -942,38 +935,47 @@ export default function AdminPanel() {
                       {departments.map(dept => <option key={dept} value={dept}>{dept}</option>)}
                     </select>
                   </div>
-                  <button type="submit" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
+                  <button type="submit"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg transition">
                     <UserPlus className="w-5 h-5" /> Add Faculty
                   </button>
                 </form>
               </div>
             )}
 
-            {/* Upload CSV Tab */}
+            {/* Upload CSV */}
             {activeTab === 'upload' && (
               <div>
-                <h2 className="text-xl font-bold text-white mb-6">Bulk Upload Users</h2>
-                <p className="text-sm text-gray-400 mb-8">Upload students and faculty in bulk using CSV files. Download templates below.</p>
+                <h2 className="text-xl font-bold text-white mb-2">Bulk Upload Users</h2>
+                <p className="text-sm text-gray-400 mb-8">
+                  Upload students and faculty in bulk using CSV. Download templates to see required format.
+                </p>
                 <div className="space-y-8 max-w-4xl">
                   <div className="bg-gray-800 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold text-white">Upload Students CSV</h3>
                       <button onClick={() => downloadCSVTemplate('students')}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm transition">
                         <Download className="w-4 h-4" /> Download Template
                       </button>
                     </div>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Required columns: UNIQUE_ID, NAME, ROLL-NO, BRANCH, YEAR, ADDRESS, PHONE NO, EMAIL ID, FATHER/GUARDIAN NAME, FATHER/GUARDIAN NUMBER, FIELD OF INTEREST
+                    </p>
                     <input type="file" accept=".csv" onChange={handleUploadStudents}
                       className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
                   </div>
                   <div className="bg-gray-800 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-lg font-semibold text-white">Upload Faculty CSV</h3>
                       <button onClick={() => downloadCSVTemplate('faculty')}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm transition">
                         <Download className="w-4 h-4" /> Download Template
                       </button>
                     </div>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Required columns: email, employment_id, department
+                    </p>
                     <input type="file" accept=".csv" onChange={handleUploadFaculty}
                       className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
                   </div>
@@ -981,7 +983,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Config Tab */}
+            {/* Config */}
             {activeTab === 'config' && (
               <div>
                 <h2 className="text-2xl font-bold text-white mb-6">Site Configuration</h2>
@@ -1014,7 +1016,7 @@ export default function AdminPanel() {
                         placeholder="https://your-logo-url.com/logo.png" />
                       {config.logo_url && (
                         <div className="mt-2 p-2 bg-gray-800 rounded-lg inline-block">
-                          <img src={config.logo_url} alt="Club Logo Preview" className="h-12 w-auto" />
+                          <img src={config.logo_url} alt="Club Logo" className="h-12 w-auto" />
                         </div>
                       )}
                     </div>
@@ -1026,7 +1028,7 @@ export default function AdminPanel() {
                         placeholder="https://mecs-logo-url.com/logo.png" />
                       {config.mecs_logo_url && (
                         <div className="mt-2 p-2 bg-gray-800 rounded-lg inline-block">
-                          <img src={config.mecs_logo_url} alt="MECS Logo Preview" className="h-12 w-auto" />
+                          <img src={config.mecs_logo_url} alt="MECS Logo" className="h-12 w-auto" />
                         </div>
                       )}
                     </div>
@@ -1045,7 +1047,7 @@ export default function AdminPanel() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-white mb-2 text-sm font-medium">Watermark Opacity (0.1 - 0.5)</label>
+                      <label className="block text-white mb-2 text-sm font-medium">Watermark Opacity (0.1–0.5)</label>
                       <input type="number" min="0.1" max="0.5" step="0.05" value={config.watermark_opacity}
                         onChange={(e) => setConfig({...config, watermark_opacity: e.target.value})}
                         className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-600" />
