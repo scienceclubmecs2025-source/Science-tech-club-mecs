@@ -25,16 +25,16 @@ export default function ExecutiveDashboard() {
   }, [])
 
   const fetchEvents = async () => {
-    setLoading(true)
-    try {
-      const data = await api.get('/events')
-      setEvents(data || [])
-    } catch (error) {
-      console.error('Failed to fetch events:', error)
-    } finally {
-      setLoading(false)
-    }
+  setLoading(true)
+  try {
+    const data = await api.get('/events')
+    setEvents(Array.isArray(data) ? data : [])  // ← add guard
+  } catch (error) {
+    console.error('Failed to fetch events:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleSubmit = async (e) => {
     e.preventDefault()
