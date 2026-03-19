@@ -11,25 +11,18 @@ router.post('/', auth, async (req, res) => {
     if (!message) return res.status(400).json({ message: 'Message is required' });
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent([{
+      role: 'user',
+      parts: [{ text: `You are a helpful assistant for the Science & Tech Club at MECS College, Hyderabad. 
+Help students with questions about events, projects, committees, and technical topics.
+Keep responses concise and friendly.\n\nUser: ${message}` }]
+    }]);
 
-    const result = await model.generateContent([
-      {
-        role: 'user',
-        parts: [{ text: `You are a helpful assistant for the Science & Tech Club at MECS College, Hyderabad. 
-Help students with questions about events, projects, committees, club activities, and technical topics.
-Keep responses concise and friendly.
-
-User: ${message}` }]
-      }
-    ]);
-
-    const reply = result.response.text();
-    res.json({ reply });
-
+    res.json({ reply: result.response.text() });
   } catch (error) {
     console.error('Chatbot error:', error.message);
     if (error.status === 429 || error.message?.includes('429')) {
-      return res.status(429).json({ message: 'Chatbot is busy, please try again in a moment.' });
+      return res.status(429).json({ message: 'Chatbot is busy, please try again.' });
     }
     res.status(500).json({ message: 'Chatbot failed', error: error.message });
   }
