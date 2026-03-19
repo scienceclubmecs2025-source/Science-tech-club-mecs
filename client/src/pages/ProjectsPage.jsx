@@ -43,15 +43,15 @@ export default function ProjectsPage() {
   }, [projects, searchQuery, filters])
 
   const fetchProjects = async () => {
-    try {
-      const res = await api.get('/projects')   // ✅ ONLY FIX
-      setProjects(res.data || [])
-    } catch (error) {
-      console.error('Failed to fetch projects:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const data = await api.get('/projects')   // ← remove res., use data directly
+    setProjects(Array.isArray(data) ? data : [])
+  } catch (error) {
+    console.error('Failed to fetch projects:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   const applyFilters = () => {
     let filtered = [...projects]
