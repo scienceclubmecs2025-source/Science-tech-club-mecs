@@ -42,14 +42,13 @@ export default function StudentDashboard() {
       api.get('/announcements'),
       api.get('/projects'),
       api.get('/projects/my-projects'),
-      api.get('/report-formats/active').catch(() => ({ data: null }))
+      api.get('/report-formats/active').catch(() => null)
     ])
-
-    setProfile(profileRes.data || null)
-    setAnnouncements((announcementsRes.data || []).slice(0, 5))
-    setProjects(allRes.data || [])
-    setMyProjects(myRes.data || [])
-    setReportFormat(formatRes.data || null)
+    setProfile(profileRes || null)                                    // ← no .data
+    setAnnouncements((Array.isArray(announcementsRes) ? announcementsRes : []).slice(0, 5))
+    setProjects(Array.isArray(allRes) ? allRes : [])
+    setMyProjects(Array.isArray(myRes) ? myRes : [])
+    setReportFormat(formatRes || null)
   } catch (error) {
     console.error('Failed to fetch dashboard:', error)
   } finally {
