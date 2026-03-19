@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
+const { Readable } = require('stream');
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Admin middleware
 const adminAuth = (req, res, next) => {
@@ -19,15 +21,15 @@ const adminAuth = (req, res, next) => {
 // Get dashboard stats
 router.get('/dashboard', auth, adminAuth, async (req, res) => {
   try {
-    const { data: users } = await supabase.from('users').select('*');
-    const { data: courses } = await supabase.from('courses').select('*');
-    const { data: events } = await supabase.from('events').select('*');
+    const { data: users }    = await supabase.from('users').select('*');
+    const { data: courses }  = await supabase.from('courses').select('*');
+    const { data: events }   = await supabase.from('events').select('*');
     const { data: projects } = await supabase.from('projects').select('*');
 
     res.json({
-      totalUsers: users?.length || 0,
-      totalCourses: courses?.length || 0,
-      totalEvents: events?.length || 0,
+      totalUsers:    users?.length    || 0,
+      totalCourses:  courses?.length  || 0,
+      totalEvents:   events?.length   || 0,
       totalProjects: projects?.length || 0
     });
   } catch (error) {
@@ -36,11 +38,21 @@ router.get('/dashboard', auth, adminAuth, async (req, res) => {
   }
 });
 
-// Add student
+// ── Add student (manual) ─────────────────────────────────────────
 router.post('/add-student', auth, adminAuth, async (req, res) => {
   try {
-    const { username, email, password, roll_number, department, year, dob } = req.body;
-    const bcrypt = require('bcryptjs');
+    const {
+      unique_id, name, roll_number, branch, year,
+      address, phone, email, guardian_name,
+      guardian_number, field_of_interest
+    } = req.body;
+
+    if (!email || !unique_id || !guardian_number) {
+      return res.status(400).json({ message: 'email, unique_id, and guardian_number are required' });
+    }
+
+    const username = email.split('@')[0];
+    const password = `${guardian_number}@${unique_id}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
@@ -49,28 +61,33 @@ router.post('/add-student', auth, adminAuth, async (req, res) => {
         username,
         email,
         password: hashedPassword,
+        full_name: name,
         roll_number,
-        department,
-        year,
-        dob,
+        department: branch,
+        year: parseInt(year) || 1,
+        phone,
+        address,
+        guardian_name,
+        guardian_number,
+        field_of_interest,
+        unique_id,
         role: 'student'
       }])
-      .select()
+      .select('id, username, email, full_name')
       .single();
 
     if (error) throw error;
-    res.json({ message: 'Student added successfully', user: data });
+    res.status(201).json({ message: 'Student added successfully', user: data });
   } catch (error) {
     console.error('Add student error:', error);
     res.status(500).json({ message: error.message || 'Failed to add student' });
   }
 });
 
-// Add faculty
+// ── Add faculty (manual) ─────────────────────────────────────────
 router.post('/add-faculty', auth, adminAuth, async (req, res) => {
   try {
     const { username, email, password, employment_id, department } = req.body;
-    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
@@ -94,86 +111,141 @@ router.post('/add-faculty', auth, adminAuth, async (req, res) => {
   }
 });
 
-// Upload students CSV
+// ── Upload students CSV ──────────────────────────────────────────
 router.post('/upload-students', auth, adminAuth, upload.single('file'), async (req, res) => {
   try {
-    const students = [];
-    const bcrypt = require('bcryptjs');
+    const results = [];
+    const errors  = [];
+    const rows    = [];
 
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on('data', (row) => {
-        students.push(row);
-      })
-      .on('end', async () => {
-        try {
-          for (const student of students) {
-            const dobParts = student.dob.split('-');
-            const username = `${student.surname}${dobParts[2]}${dobParts[1]}${dobParts[0].slice(-2)}`;
-            const hashedPassword = await bcrypt.hash(student.roll_number, 10);
+    // Parse CSV from memory buffer
+    await new Promise((resolve, reject) => {
+      const stream = Readable.from(req.file.buffer.toString('utf8'));
+      stream
+        .pipe(csv())
+        .on('data', (row) => rows.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
 
-            await supabase.from('users').insert([{
-              username,
-              email: student.email,
-              password: hashedPassword,
-              roll_number: student.roll_number,
-              department: student.department,
-              year: parseInt(student.year),
-              dob: student.dob,
-              role: 'student'
-            }]);
-          }
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
 
-          fs.unlinkSync(req.file.path);
-          res.json({ message: 'Students uploaded successfully', count: students.length });
-        } catch (error) {
-          console.error('CSV processing error:', error);
-          res.status(500).json({ message: 'Failed to process CSV' });
+      // Normalize keys — handle spaces and slashes in header names
+      const get = (...keys) => {
+        for (const k of keys) {
+          const found = Object.keys(row).find(
+            rk => rk.trim().toLowerCase() === k.toLowerCase()
+          );
+          if (found && row[found]?.trim()) return row[found].trim();
         }
-      });
+        return '';
+      };
+
+      const unique_id       = get('UNIQUE_ID', 'unique_id', 'unique id');
+      const name            = get('NAME', 'name');
+      const roll_number     = get('ROLL-NO', 'roll_no', 'roll_number', 'rollno');
+      const branch          = get('BRANCH', 'branch', 'department');
+      const year            = get('YEAR', 'year');
+      const address         = get('ADDRESS', 'address');
+      const phone           = get('PHONE NO', 'phone_no', 'phone', 'phoneno');
+      const email           = get('EMAIL ID', 'email_id', 'email');
+      const guardian_name   = get('FATHER/GUARDIAN NAME', 'father/guardian_name', 'guardian_name');
+      const guardian_number = get('FATHER/GUARDIAN NUMBER', 'father/guardian_number', 'guardian_number');
+      const field_of_interest = get('FIELD OF INTEREST', 'field_of_interest', 'field');
+
+      if (!email || !unique_id || !guardian_number) {
+        errors.push(`Row ${i + 2}: missing email, unique_id, or guardian_number`);
+        continue;
+      }
+
+      const username = email.split('@')[0];
+      const password = `${guardian_number}@${unique_id}`;
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const { error } = await supabase.from('users').insert([{
+        username,
+        email,
+        password: hashedPassword,
+        full_name: name,
+        roll_number,
+        department: branch,
+        year: parseInt(year) || 1,
+        phone,
+        address,
+        guardian_name,
+        guardian_number,
+        field_of_interest,
+        unique_id,
+        role: 'student'
+      }]);
+
+      if (error) errors.push(`Row ${i + 2} (${email}): ${error.message}`);
+      else results.push(email);
+    }
+
+    res.json({
+      message: `Uploaded ${results.length} students, ${errors.length} failed`,
+      success: results,
+      errors
+    });
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ message: 'Failed to upload students' });
+    console.error('Upload students error:', error);
+    res.status(500).json({ message: 'Failed to upload students', error: error.message });
   }
 });
 
-// Upload faculty CSV
+// ── Upload faculty CSV ───────────────────────────────────────────
 router.post('/upload-faculty', auth, adminAuth, upload.single('file'), async (req, res) => {
   try {
-    const faculty = [];
-    const bcrypt = require('bcryptjs');
+    const results = [];
+    const errors  = [];
+    const rows    = [];
 
-    fs.createReadStream(req.file.path)
-      .pipe(csv())
-      .on('data', (row) => {
-        faculty.push(row);
-      })
-      .on('end', async () => {
-        try {
-          for (const fac of faculty) {
-            const username = fac.email.split('@')[0];
-            const hashedPassword = await bcrypt.hash(fac.employment_id, 10);
+    await new Promise((resolve, reject) => {
+      const stream = Readable.from(req.file.buffer.toString('utf8'));
+      stream
+        .pipe(csv())
+        .on('data', (row) => rows.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
 
-            await supabase.from('users').insert([{
-              username,
-              email: fac.email,
-              password: hashedPassword,
-              employment_id: fac.employment_id,
-              department: fac.department,
-              role: 'faculty'
-            }]);
-          }
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const email         = (row['email'] || row['EMAIL'] || '').trim();
+      const employment_id = (row['employment_id'] || row['EMPLOYMENT_ID'] || '').trim();
+      const department    = (row['department'] || row['DEPARTMENT'] || row['BRANCH'] || '').trim();
 
-          fs.unlinkSync(req.file.path);
-          res.json({ message: 'Faculty uploaded successfully', count: faculty.length });
-        } catch (error) {
-          console.error('CSV processing error:', error);
-          res.status(500).json({ message: 'Failed to process CSV' });
-        }
-      });
+      if (!email || !employment_id) {
+        errors.push(`Row ${i + 2}: missing email or employment_id`);
+        continue;
+      }
+
+      const username = email.split('@')[0];
+      const hashedPassword = await bcrypt.hash(employment_id, 10);
+
+      const { error } = await supabase.from('users').insert([{
+        username,
+        email,
+        password: hashedPassword,
+        employment_id,
+        department,
+        role: 'faculty'
+      }]);
+
+      if (error) errors.push(`Row ${i + 2} (${email}): ${error.message}`);
+      else results.push(email);
+    }
+
+    res.json({
+      message: `Uploaded ${results.length} faculty, ${errors.length} failed`,
+      success: results,
+      errors
+    });
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ message: 'Failed to upload faculty' });
+    console.error('Upload faculty error:', error);
+    res.status(500).json({ message: 'Failed to upload faculty', error: error.message });
   }
 });
 
