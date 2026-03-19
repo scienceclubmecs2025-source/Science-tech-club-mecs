@@ -32,8 +32,8 @@ export default function CoursesPage() {
 
   const fetchVideos = async () => {
     try {
-      const res = await api.getOne('/courses/videos')       // ✅ FIX 1
-      setVideos(res.data || [])
+      const data = await api.getArray('/courses/videos')
+      setVideos(data)
     } catch (error) {
       console.error('Failed to fetch videos:', error)
     } finally {
@@ -43,8 +43,8 @@ export default function CoursesPage() {
 
   const fetchComments = async (videoId) => {
     try {
-      const res = await api.getOne(`/courses/videos/${videoId}/comments`)   // ✅ FIX 2
-      setComments(res.data || [])
+      const data = await api.getArray(`/courses/videos/${videoId}/comments`)
+      setComments(data)
     } catch (error) {
       console.error('Failed to fetch comments:', error)
     }
@@ -57,12 +57,12 @@ export default function CoursesPage() {
     }
     setUploading(true)
     try {
-      const res = await api.post('/courses/videos', {        // ✅ FIX 3
+      const data = await api.post('/courses/videos', {
         title: uploadForm.title,
         youtube_url: uploadForm.youtube_url,
         description: uploadForm.description
       })
-      setVideos([res.data, ...videos])
+      setVideos([data, ...videos])
       setShowUploadModal(false)
       setUploadForm({ title: '', youtube_url: '', description: '' })
       alert('Video added successfully!')
@@ -77,10 +77,10 @@ export default function CoursesPage() {
     e.preventDefault()
     if (!newComment.trim()) return
     try {
-      const res = await api.post(`/courses/videos/${selectedVideo.id}/comments`, {   // ✅ FIX 4
+      const data = await api.post(`/courses/videos/${selectedVideo.id}/comments`, {
         content: newComment
       })
-      setComments([...comments, res.data])
+      setComments([...comments, data])
       setNewComment('')
     } catch (error) {
       alert('Failed to add comment')
