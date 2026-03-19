@@ -43,32 +43,33 @@ export default function Home() {
   }, [])
 
   const fetchCommittee = async () => {
-    try {
-      const data = await api.get('/public/committee')
-      setCommittee(data)
-    } catch (error) {
-      console.error('Failed to fetch committee:', error)
-    }
+  try {
+    const data = await api.get('/public/committee')
+    setCommittee(Array.isArray(data) ? data : [])  // ← add guard
+  } catch (error) {
+    console.error('Failed to fetch committee:', error)
   }
+}
 
-  const fetchHomeData = async () => {
-    try {
-      const [eventsRes, usersRes] = await Promise.all([
-        api.get('/events').catch(() => ({ data: [] })),
-        api.get('/users').catch(() => ({ data: [] }))
-      ])
+const fetchHomeData = async () => {
+  try {
+    const [eventsRes, usersRes] = await Promise.all([
+      api.get('/events').catch(() => []),       // ← return [] not {data:[]}
+      api.get('/users').catch(() => [])
+    ])
 
-      setEvents(eventsRes.data || [])
-      
-      const users = usersRes.data || []
-      setStats({
-        students: users.filter(u => u.role === 'student').length,
-        teachers: users.filter(u => u.role === 'faculty').length
-      })
-    } catch (error) {
-      console.error('Failed to fetch home data:', error)
-    }
+    const events = Array.isArray(eventsRes) ? eventsRes : []  // ← no .data
+    const users = Array.isArray(usersRes) ? usersRes : []
+
+    setEvents(events)
+    setStats({
+      students: users.filter(u => u.role === 'student').length,
+      teachers: users.filter(u => u.role === 'faculty').length
+    })
+  } catch (error) {
+    console.error('Failed to fetch home data:', error)
   }
+}
 
   const scroll = (direction) => {
     const container = document.getElementById('committee-scroll')
