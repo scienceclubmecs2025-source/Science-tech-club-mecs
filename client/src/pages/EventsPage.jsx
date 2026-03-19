@@ -13,15 +13,15 @@ export default function EventsPage() {
   }, [])
 
   const fetchEvents = async () => {
-    try {
-      const data = await api.get('/events')
-      setEvents(data)
-    } catch (error) {
-      console.error('Failed to fetch events:', error)
-    } finally {
-      setLoading(false)
-    }
+  try {
+    const data = await api.get('/events')
+    setEvents(Array.isArray(data) ? data : [])  // ← add guard
+  } catch (error) {
+    console.error('Failed to fetch events:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   if (loading) {
     return (
