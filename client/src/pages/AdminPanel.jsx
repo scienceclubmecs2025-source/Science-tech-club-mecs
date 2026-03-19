@@ -351,35 +351,7 @@ const handleGenerateReport = async () => {
     } catch (error) { alert('Failed to activate format') }
   }
 
-  const handleGenerateReport = async () => {
-    setGeneratingReport(true)
-    try {
-      const [usersRes, evtsRes, projsRes] = await Promise.all([
-        api.get('/users'),
-        api.get('/events'),
-        api.get('/projects')
-      ])
-      const u = Array.isArray(usersRes.data) ? usersRes.data : []
-      const e = Array.isArray(evtsRes.data) ? evtsRes.data : []
-      const p = Array.isArray(projsRes.data) ? projsRes.data : []
-      const reportStats = {
-        total_users: u.length,
-        committee_members: u.filter(x => x.is_committee).length,
-        active_students: u.filter(x => x.role === 'student').length,
-        faculty_count: u.filter(x => x.role === 'faculty').length,
-        total_events: e.length,
-        total_projects: p.length
-      }
-      await generateStatisticsReport(reportStats, u, e, p)
-      alert('Report generated successfully!')
-    } catch (error) {
-      console.error('Failed to generate report:', error)
-      alert('Failed to generate report. Please try again.')
-    } finally {
-      setGeneratingReport(false)
-    }
-  }
-
+  
   const downloadCSVTemplate = (type) => {
     let csvContent = ''
     if (type === 'students') {
