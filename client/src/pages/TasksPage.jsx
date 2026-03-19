@@ -21,17 +21,17 @@ export default function TasksPage() {
   }, [])
 
   const fetchTasks = async () => {
-    setLoading(true)
-    try {
-      const data = await api.get('/tasks')
-      setTasks(data || [])
-    } catch (error) {
-      console.error('Failed to fetch tasks:', error)
-      setTasks([])
-    } finally {
-      setLoading(false)
-    }
+  setLoading(true)
+  try {
+    const data = await api.get('/tasks')
+    setTasks(Array.isArray(data) ? data : [])  // ← add guard
+  } catch (error) {
+    console.error('Failed to fetch tasks:', error)
+    setTasks([])
+  } finally {
+    setLoading(false)
   }
+}
 
   const createTask = async (e) => {
     e.preventDefault()
