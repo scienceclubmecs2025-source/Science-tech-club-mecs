@@ -64,17 +64,17 @@ export default function AdminPanel() {
     if (activeTab === 'reports') fetchReportFormats()
   }, [activeTab])
 
-  // ── Fetch functions — api.get() returns data directly now ────────
+  // ✅ FIXED: use response.data not response directly
   const fetchDashboard = async () => {
     try {
-      const [users, evts, projs] = await Promise.all([
-        api.get('/users').catch(() => []),
-        api.get('/events').catch(() => []),
-        api.get('/projects').catch(() => [])
+      const [usersRes, evtsRes, projsRes] = await Promise.all([
+        api.get('/users').catch(() => ({ data: [] })),
+        api.get('/events').catch(() => ({ data: [] })),
+        api.get('/projects').catch(() => ({ data: [] }))
       ])
-      const u = users || []
-      const e = evts || []
-      const p = projs || []
+      const u = Array.isArray(usersRes.data) ? usersRes.data : []
+      const e = Array.isArray(evtsRes.data) ? evtsRes.data : []
+      const p = Array.isArray(projsRes.data) ? projsRes.data : []
       setStats({
         total_users: u.length,
         committee_members: u.filter(x => x.is_committee).length,
@@ -92,8 +92,8 @@ export default function AdminPanel() {
 
   const fetchAllUsers = async () => {
     try {
-      const response = await api.get('/users'); const data = response.data
-      setAllUsers(data || [])
+      const response = await api.get('/users')
+      setAllUsers(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch users:', error)
     }
@@ -101,8 +101,8 @@ export default function AdminPanel() {
 
   const fetchEvents = async () => {
     try {
-      const response = await api.get('/events'); const data = response.data
-      setEvents(data || [])
+      const response = await api.get('/events')
+      setEvents(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch events:', error)
     }
@@ -110,8 +110,8 @@ export default function AdminPanel() {
 
   const fetchProjects = async () => {
     try {
-      const response = await api.get('/projects'); const data = response.data
-      setProjects(data || [])
+      const response = await api.get('/projects')
+      setProjects(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch projects:', error)
     }
@@ -119,8 +119,8 @@ export default function AdminPanel() {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await api.get('/announcements'); const data = response.data
-      setAnnouncements(data || [])
+      const response = await api.get('/announcements')
+      setAnnouncements(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch announcements:', error)
     }
@@ -128,8 +128,8 @@ export default function AdminPanel() {
 
   const fetchConfig = async () => {
     try {
-      const response = await api.get('/config'); const data = response.data
-      setConfig(prev => ({ ...prev, ...(data || {}) }))
+      const response = await api.get('/config')
+      setConfig(prev => ({ ...prev, ...(response.data || {}) }))
     } catch (error) {
       console.error('Failed to fetch config:', error)
     }
@@ -137,14 +137,13 @@ export default function AdminPanel() {
 
   const fetchReportFormats = async () => {
     try {
-      const response = await api.get('/reports'); const data = response.data
-      setReportFormats(data || [])
+      const response = await api.get('/reports')
+      setReportFormats(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch formats:', error)
     }
   }
 
-  // ── Handlers ─────────────────────────────────────────────────────
   const handleAddStudent = async (e) => {
     e.preventDefault()
     try {
@@ -364,17 +363,18 @@ export default function AdminPanel() {
     }
   }
 
+  // ✅ FIXED: use response.data
   const handleGenerateReport = async () => {
     setGeneratingReport(true)
     try {
-      const [users, evts, projs] = await Promise.all([
+      const [usersRes, evtsRes, projsRes] = await Promise.all([
         api.get('/users'),
         api.get('/events'),
         api.get('/projects')
       ])
-      const u = users || []
-      const e = evts || []
-      const p = projs || []
+      const u = Array.isArray(usersRes.data) ? usersRes.data : []
+      const e = Array.isArray(evtsRes.data) ? evtsRes.data : []
+      const p = Array.isArray(projsRes.data) ? projsRes.data : []
       const reportStats = {
         total_users: u.length,
         committee_members: u.filter(x => x.is_committee).length,
