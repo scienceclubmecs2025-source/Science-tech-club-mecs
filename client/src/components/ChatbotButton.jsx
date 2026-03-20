@@ -10,38 +10,31 @@ export default function ChatbotButton() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Bot avatar URL - Unique robot avatar
   const botAvatar = "https://i.ibb.co/jPY2Q8zn/bot.png"
 
   const handleSend = async (e) => {
     e?.preventDefault()
-    if (!input.trim() || loading) return
+    const userMessage = input.trim()
+    if (!userMessage || loading) return
 
-    // Add user message
-    const userMessage = { role: 'user', text: input }
-    setMessages(prev => [...prev, userMessage])
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }])
     setInput('')
     setLoading(true)
 
     try {
-      // Call AI backend
-      const data = await api.post('/chatbot', { question: input })
-      
-      // Add bot response
-      const botMessage = { 
-        role: 'bot', 
-        text: data.answer || 'I received your message! How else can I help you?' 
+      const res = await api.post('/chatbot', { message: userMessage })
+      // ✅ interceptor already unwraps .data
+      const botMessage = {
+        role: 'bot',
+        text: res.reply || 'I received your message! How else can I help you?'
       }
       setMessages(prev => [...prev, botMessage])
     } catch (error) {
       console.error('Chatbot error:', error)
-      
-      // Fallback response
-      const errorMessage = { 
-        role: 'bot', 
-        text: 'Sorry, I encountered an error. Please try again or contact support at scienceclubmecs@gmail.com' 
-      }
-      setMessages(prev => [...prev, errorMessage])
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        text: 'Sorry, I encountered an error. Please try again or contact support at scienceclubmecs@gmail.com'
+      }])
     } finally {
       setLoading(false)
     }
@@ -66,18 +59,14 @@ export default function ChatbotButton() {
           <X className="w-6 h-6" />
         ) : (
           <>
-            {/* Robot Avatar */}
-            <img 
-              src={botAvatar} 
-              alt="ST Club Assistant" 
+            <img
+              src={botAvatar}
+              alt="ST Club Assistant"
               className="w-10 h-10 rounded-full"
             />
-            {/* Online indicator */}
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-black animate-pulse"></span>
           </>
         )}
-        
-        {/* Tooltip */}
         {!isOpen && (
           <span className="absolute right-full mr-3 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg pointer-events-none">
             ST Club Assistant
@@ -92,28 +81,24 @@ export default function ChatbotButton() {
           <div className="bg-gradient-to-r from-green-600 to-teal-600 p-4 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {/* Bot Avatar */}
                 <div className="relative">
-                  <img 
-                    src={botAvatar} 
-                    alt="ST Club Assistant" 
+                  <img
+                    src={botAvatar}
+                    alt="ST Club Assistant"
                     className="w-10 h-10 rounded-full border-2 border-white"
                   />
-                  {/* Online status */}
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-green-600"></span>
                 </div>
-                
                 <div className="flex-1">
                   <h3 className="font-bold text-white flex items-center gap-2">
                     ST Club Assistant
                     <Sparkles className="w-4 h-4" />
                   </h3>
                   <p className="text-xs text-green-100">
-                    {loading ? 'Typing...' : 'Online • AI-powered'}
+                    {loading ? 'Typing...' : 'Online • S&T Club Guide'}
                   </p>
                 </div>
               </div>
-
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-white hover:bg-white/20 p-1.5 rounded-lg transition"
@@ -126,34 +111,18 @@ export default function ChatbotButton() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black">
-            {messages.length === 0 && (
-              <div className="text-center text-gray-500 text-sm mt-8">
-                <Bot className="w-16 h-16 mx-auto mb-4 text-gray-700" />
-                <p className="mb-2">Ask me about:</p>
-                <ul className="text-xs space-y-1">
-                  <li>• Club events and activities</li>
-                  <li>• Courses and projects</li>
-                  <li>• Technical queries</li>
-                  <li>• Membership information</li>
-                </ul>
-              </div>
-            )}
-
             {messages.map((msg, idx) => (
               <div
                 key={idx}
                 className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
-                {/* Avatar for bot messages */}
                 {msg.role === 'bot' && (
-                  <img 
-                    src={botAvatar} 
-                    alt="Bot" 
+                  <img
+                    src={botAvatar}
+                    alt="Bot"
                     className="w-8 h-8 rounded-full flex-shrink-0"
                   />
                 )}
-                
-                {/* User avatar */}
                 {msg.role === 'user' && (
                   <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-sm font-semibold">
@@ -161,28 +130,19 @@ export default function ChatbotButton() {
                     </span>
                   </div>
                 )}
-                
-                {/* Message bubble */}
-                <div
-                  className={`max-w-[75%] p-3 rounded-2xl ${
-                    msg.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
-                  }`}
-                >
+                <div className={`max-w-[75%] p-3 rounded-2xl ${
+                  msg.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-br-none'
+                    : 'bg-gray-800 text-gray-200 rounded-bl-none border border-gray-700'
+                }`}>
                   <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                 </div>
               </div>
             ))}
-            
-            {/* Typing indicator */}
+
             {loading && (
               <div className="flex gap-3">
-                <img 
-                  src={botAvatar} 
-                  alt="Bot" 
-                  className="w-8 h-8 rounded-full"
-                />
+                <img src={botAvatar} alt="Bot" className="w-8 h-8 rounded-full" />
                 <div className="bg-gray-800 border border-gray-700 p-3 rounded-2xl rounded-bl-none">
                   <div className="flex gap-1.5">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></span>
@@ -218,10 +178,8 @@ export default function ChatbotButton() {
                 )}
               </button>
             </div>
-            
-            {/* Footer text */}
             <p className="text-xs text-gray-500 mt-2 text-center">
-              AI-powered by Science & Tech Club
+              S&T Club Guide
             </p>
           </form>
         </div>
