@@ -86,7 +86,7 @@ export default function RequestProfilePage() {
               <label className="block text-gray-300 text-sm mb-1">Roll Number</label>
               <input value={form.roll_number} onChange={e => setForm({...form, roll_number: e.target.value})}
                 className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm"
-                placeholder="e.g. 22A91A0501" />
+                placeholder="e.g. 16082xxxxxxx" />
             </div>
             <div>
               <label className="block text-gray-300 text-sm mb-1">Year</label>
