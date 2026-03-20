@@ -36,7 +36,7 @@ export default function Login({ setUser }) {
             <span className="text-white text-2xl font-bold">S</span>
           </div>
           <h1 className="text-3xl font-bold text-white">Science & Tech Club</h1>
-          <p className="text-gray-400 mt-1">MECS — Member Portal</p>
+          <p className="text-gray-400 mt-1">MECS Login Portal</p>
         </div>
 
         {/* Login Form */}
