@@ -179,10 +179,8 @@ const fetchHomeData = async () => {
           </h1>
           
           <p className="text-xl text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Greetings from the MECS Tech Community where every idea has the potential to become a reality and innovation meets opportunity.
-            and is dedicated to empowering the next generation of technology leaders through practical innovation, teamwork, and access to cutting-edge technology.
-            You're in the right place whether you're a novice making your first foray into the tech industry or an experienced inventor hoping to develop the next big thing. Come along with us as we shape the future, one innovation and project at a time.
-          </p>
+            Greetings from the MECS Tech Community where every idea has the potential to become a reality and innovation meets opportunity. It is dedicated to empowering the next generation of technology leaders through practical innovation, teamwork, and access to cutting-edge technology.
+            You're in the right place whether you're a novice making your first entrance into the tech industry or an experienced inventor hoping to develop the next big thing. Come along with us as we shape the future, one innovation and project at a time.          </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link to="/login" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-4 rounded-lg font-medium transition inline-flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30">
