@@ -251,7 +251,7 @@ app.get('/api/projects/my-projects', auth, async (req, res) => {
 // ── Route files ──────────────────────────────────────────────────
 let authRoutes, userRoutes, courseRoutes, projectRoutes, eventRoutes,
     announcementRoutes, messageRoutes, configRoutes, adminRoutes,
-    quizRoutes, chatbotRoutes, reportRoutes
+    quizRoutes, chatbotRoutes, reportRoutes, friendRoutes, channelRoutes
 
 try { authRoutes         = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:', e.message) }
 try { userRoutes         = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:', e.message) }
@@ -265,6 +265,8 @@ try { adminRoutes        = require('./routes/admin')         } catch(e) { consol
 try { quizRoutes         = require('./routes/quizzes')       } catch(e) { console.error('❌ quizzes routes failed:', e.message) }
 try { chatbotRoutes      = require('./routes/chatbot')       } catch(e) { console.error('❌ chatbot routes failed:', e.message) }
 try { reportRoutes       = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:', e.message) }
+try { friendRoutes       = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:', e.message) }
+try { channelRoutes      = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:', e.message) }
 
 // ── Mount routes ─────────────────────────────────────────────────
 if (authRoutes)         app.use('/api/auth',          authRoutes)
@@ -279,6 +281,8 @@ if (adminRoutes)        app.use('/api/admin',         adminRoutes)
 if (quizRoutes)         app.use('/api/quizzes',       quizRoutes)
 if (chatbotRoutes)      app.use('/api/chatbot',       chatbotRoutes)
 if (reportRoutes)       app.use('/api/reports',       reportRoutes)
+if (friendRoutes)       app.use('/api/friends',       friendRoutes)
+if (channelRoutes)      app.use('/api/channels',      channelRoutes)
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
