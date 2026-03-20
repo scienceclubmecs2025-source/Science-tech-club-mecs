@@ -6,7 +6,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([{
     id: 1,
     type: 'bot',
-    text: "👋 Hi! I'm the Science & Tech Club assistant.\n\nI can guide you on the platform, or answer any question using Gemini AI!"
+    text: "👋 Hi! I'm the Science & Tech Club assistant.\n\nI can guide you on the platform"
   }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,7 +84,7 @@ export default function Chatbot() {
               <h1 className="text-white font-bold text-lg flex items-center gap-2">
                 Club Assistant <Sparkles className="w-4 h-4 text-purple-400" />
               </h1>
-              <p className="text-green-400 text-xs">● Online • S&T Guide + Gemini AI</p>
+              <p className="text-green-400 text-xs">● Online • S&T Guide </p>
             </div>
           </div>
           <button
