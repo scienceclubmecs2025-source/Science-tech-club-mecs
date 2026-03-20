@@ -18,25 +18,6 @@ export default function Chatbot() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load history on mount
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const { data } = await api.get('/chatbot/history');  // ✅ fixed
-        if (data && data.length > 0) {
-          const historyMessages = data.flatMap((h, i) => [
-            { id: `h-user-${i}`, type: 'user', text: h.message },
-            { id: `h-bot-${i}`, type: 'bot', text: h.reply }
-          ]);
-          setMessages(prev => [...prev, ...historyMessages]);
-        }
-      } catch {
-        // History fetch is optional — fail silently
-      }
-    };
-    fetchHistory();
-  }, []);
-
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
@@ -47,16 +28,20 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/chatbot', { message: trimmed });  // ✅ fixed
-      const botMsg = { id: Date.now() + 1, type: 'bot', text: data.reply };
+      const res = await api.post('/chatbot', { message: trimmed });
+      // ✅ interceptor already unwraps .data
+      const botMsg = {
+        id: Date.now() + 1,
+        type: 'bot',
+        text: res.reply || 'How else can I help you?'
+      };
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
-      const errMsg = {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'bot',
         text: '❌ Sorry, something went wrong. Please try again.'
-      };
-      setMessages(prev => [...prev, errMsg]);
+      }]);
     } finally {
       setLoading(false);
     }
@@ -69,18 +54,13 @@ export default function Chatbot() {
     }
   };
 
-  const handleClearHistory = async () => {
-    if (!confirm('Clear chat history?')) return;
-    try {
-      await api.delete('/chatbot/history');  // ✅ fixed
-      setMessages([{
-        id: Date.now(),
-        type: 'bot',
-        text: "History cleared! How can I help you?"
-      }]);
-    } catch {
-      alert('Failed to clear history');
-    }
+  const handleClearHistory = () => {
+    // ✅ local clear only — no backend needed
+    setMessages([{
+      id: Date.now(),
+      type: 'bot',
+      text: "Chat cleared! How can I help you?"
+    }]);
   };
 
   const renderText = (text) => {
@@ -163,7 +143,7 @@ export default function Chatbot() {
 
         {/* Quick suggestions */}
         <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
-          {['Upcoming events', 'Latest announcements', 'Available courses', 'Active projects'].map(s => (
+          {['Upcoming events', 'Available courses', 'Active projects', 'How to message', 'Edit my profile', 'My dashboard'].map(s => (
             <button
               key={s}
               onClick={() => setInput(s)}
