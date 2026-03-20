@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Trash2, Loader } from 'lucide-react';
+import { Send, Bot, User, Trash2, Loader, Sparkles } from 'lucide-react';
 import api from '../services/api';
 
 export default function Chatbot() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'bot',
-      text: "👋 Hi! I'm the Science & Tech Club assistant. Ask me about **events**, **announcements**, **courses**, or **projects**!"
-    }
-  ]);
+  const [messages, setMessages] = useState([{
+    id: 1,
+    type: 'bot',
+    text: "👋 Hi! I'm the Science & Tech Club assistant.\n\nI can guide you on the platform, or answer any question using Gemini AI!"
+  }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
@@ -22,20 +20,17 @@ export default function Chatbot() {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
-    const userMsg = { id: Date.now(), type: 'user', text: trimmed };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { id: Date.now(), type: 'user', text: trimmed }]);
     setInput('');
     setLoading(true);
 
     try {
       const res = await api.post('/chatbot', { message: trimmed });
-      // ✅ interceptor already unwraps .data
-      const botMsg = {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'bot',
         text: res.reply || 'How else can I help you?'
-      };
-      setMessages(prev => [...prev, botMsg]);
+      }]);
     } catch (error) {
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
@@ -55,7 +50,6 @@ export default function Chatbot() {
   };
 
   const handleClearHistory = () => {
-    // ✅ local clear only — no backend needed
     setMessages([{
       id: Date.now(),
       type: 'bot',
@@ -87,35 +81,30 @@ export default function Chatbot() {
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg">Club Assistant</h1>
-              <p className="text-green-400 text-xs">● Online</p>
+              <h1 className="text-white font-bold text-lg flex items-center gap-2">
+                Club Assistant <Sparkles className="w-4 h-4 text-purple-400" />
+              </h1>
+              <p className="text-green-400 text-xs">● Online • S&T Guide + Gemini AI</p>
             </div>
           </div>
           <button
             onClick={handleClearHistory}
             className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-red-400 rounded-lg text-sm transition"
           >
-            <Trash2 className="w-4 h-4" />
-            Clear
+            <Trash2 className="w-4 h-4" /> Clear
           </button>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-hide">
           {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}
-            >
+            <div key={msg.id} className={`flex gap-3 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                 msg.type === 'bot'
                   ? 'bg-gradient-to-br from-blue-500 to-purple-600'
                   : 'bg-gradient-to-br from-green-500 to-teal-600'
               }`}>
-                {msg.type === 'bot'
-                  ? <Bot className="w-4 h-4 text-white" />
-                  : <User className="w-4 h-4 text-white" />
-                }
+                {msg.type === 'bot' ? <Bot className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
               </div>
               <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                 msg.type === 'bot'
@@ -137,7 +126,6 @@ export default function Chatbot() {
               </div>
             </div>
           )}
-
           <div ref={bottomRef} />
         </div>
 
@@ -161,7 +149,7 @@ export default function Chatbot() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about events, courses, projects..."
+            placeholder="Ask anything — platform guide or general questions..."
             className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm"
           />
           <button
@@ -172,7 +160,6 @@ export default function Chatbot() {
             <Send className="w-5 h-5 text-white" />
           </button>
         </div>
-
       </div>
     </div>
   );
