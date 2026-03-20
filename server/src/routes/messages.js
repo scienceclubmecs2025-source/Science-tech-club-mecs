@@ -3,59 +3,9 @@ const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
 
-// Get all conversations for a user
-router.get('/conversations', auth, async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('conversations')
-      .select(`
-        *,
-        participant1:user1_id(id, username, full_name, profile_photo_url, is_committee),
-        participant2:user2_id(id, username, full_name, profile_photo_url, is_committee),
-        last_message:messages(content, created_at)
-      `)
-      .or(`user1_id.eq.${req.user.id},user2_id.eq.${req.user.id}`)
-      .order('updated_at', { ascending: false });
+// ── Channel messages ──────────────────────────────────────────────
 
-    if (error) throw error;
-    res.json(data || []);
-  } catch (error) {
-    console.error('Conversations error:', error);
-    res.status(500).json({ message: 'Failed to fetch conversations' });
-  }
-});
-
-// Get or create conversation between two users
-router.post('/conversations', auth, async (req, res) => {
-  try {
-    const { other_user_id } = req.body;
-    const myId = req.user.id;
-
-    // Check existing
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('*')
-      .or(`and(user1_id.eq.${myId},user2_id.eq.${other_user_id}),and(user1_id.eq.${other_user_id},user2_id.eq.${myId})`)
-      .single();
-
-    if (existing) return res.json(existing);
-
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert([{ user1_id: myId, user2_id: other_user_id }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.status(201).json(data);
-  } catch (error) {
-    console.error('Create conversation error:', error);
-    res.status(500).json({ message: 'Failed to create conversation' });
-  }
-});
-
-// Get messages in a conversation
-router.get('/conversations/:id/messages', auth, async (req, res) => {
+router.get('/channel/:channelId', auth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('messages')
@@ -63,106 +13,194 @@ router.get('/conversations/:id/messages', auth, async (req, res) => {
         *,
         sender:sender_id(id, username, full_name, profile_photo_url)
       `)
-      .eq('conversation_id', req.params.id)
-      .order('created_at', { ascending: true });
+      .eq('channel_id', req.params.channelId)
+      .order('created_at', { ascending: true })
+      .limit(100)
 
-    if (error) throw error;
-    res.json(data || []);
+    if (error) throw error
+    res.json(data || [])
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch messages' });
+    console.error('Fetch channel messages error:', error)
+    res.status(500).json({ message: 'Failed to fetch messages', error: error.message })
   }
-});
+})
 
-// Send message in conversation
-router.post('/conversations/:id/messages', auth, async (req, res) => {
+router.post('/channel/:channelId', auth, async (req, res) => {
   try {
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ message: 'Content required' });
+    const { content } = req.body
+    if (!content?.trim()) return res.status(400).json({ message: 'Content required' })
 
     const { data, error } = await supabase
       .from('messages')
       .insert([{
-        conversation_id: req.params.id,
         sender_id: req.user.id,
+        channel_id: req.params.channelId,
         content: content.trim()
       }])
       .select(`
         *,
         sender:sender_id(id, username, full_name, profile_photo_url)
       `)
-      .single();
+      .single()
 
-    if (error) throw error;
-
-    // Update conversation timestamp
-    await supabase
-      .from('conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', req.params.id);
-
-    res.status(201).json(data);
+    if (error) throw error
+    res.status(201).json(data)
   } catch (error) {
-    console.error('Send message error:', error);
-    res.status(500).json({ message: 'Failed to send message' });
+    console.error('Send channel message error:', error)
+    res.status(500).json({ message: 'Failed to send message', error: error.message })
   }
-});
+})
 
-// ─── COMMITTEE GROUP CHAT ───────────────────────────────────────
+// ── DM messages ───────────────────────────────────────────────────
 
-// Get committee channel messages
-router.get('/committee-chat', auth, async (req, res) => {
+router.get('/dm/:userId', auth, async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from('committee_messages')
+      .from('messages')
+      .select(`
+        *,
+        sender:sender_id(id, username, full_name, profile_photo_url)
+      `)
+      .or(
+        `and(sender_id.eq.${req.user.id},receiver_id.eq.${req.params.userId}),` +
+        `and(sender_id.eq.${req.params.userId},receiver_id.eq.${req.user.id})`
+      )
+      .is('channel_id', null)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    // Mark received messages as read
+    await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('sender_id', req.params.userId)
+      .eq('receiver_id', req.user.id)
+
+    res.json(data || [])
+  } catch (error) {
+    console.error('Fetch DM error:', error)
+    res.status(500).json({ message: 'Failed to fetch messages', error: error.message })
+  }
+})
+
+router.post('/dm/:userId', auth, async (req, res) => {
+  try {
+    const { content } = req.body
+    if (!content?.trim()) return res.status(400).json({ message: 'Content required' })
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert([{
+        sender_id: req.user.id,
+        receiver_id: req.params.userId,
+        content: content.trim()
+      }])
+      .select(`
+        *,
+        sender:sender_id(id, username, full_name, profile_photo_url)
+      `)
+      .single()
+
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (error) {
+    console.error('Send DM error:', error)
+    res.status(500).json({ message: 'Failed to send message', error: error.message })
+  }
+})
+
+// ── Unread count ──────────────────────────────────────────────────
+
+router.get('/unread-count', auth, async (req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('receiver_id', req.user.id)
+      .eq('is_read', false)
+
+    if (error) throw error
+    res.json({ count: count || 0 })
+  } catch (error) {
+    res.json({ count: 0 })
+  }
+})
+
+// ── Committee chat (uses committee channel) ───────────────────────
+
+router.get('/committee-chat', auth, async (req, res) => {
+  try {
+    // Get committee channel id
+    const { data: channel } = await supabase
+      .from('channels')
+      .select('id')
+      .eq('name', 'committee')
+      .single()
+
+    if (!channel) return res.json([])
+
+    const { data, error } = await supabase
+      .from('messages')
       .select(`
         *,
         sender:sender_id(id, username, full_name, profile_photo_url, committee_post)
       `)
+      .eq('channel_id', channel.id)
       .order('created_at', { ascending: true })
-      .limit(100);
+      .limit(100)
 
-    if (error) throw error;
-    res.json(data || []);
+    if (error) throw error
+    res.json(data || [])
   } catch (error) {
-    console.error('Committee chat error:', error);
-    res.status(500).json({ message: 'Failed to fetch committee messages' });
+    console.error('Committee chat error:', error)
+    res.status(500).json({ message: 'Failed to fetch committee messages' })
   }
-});
+})
 
-// Send committee chat message
 router.post('/committee-chat', auth, async (req, res) => {
   try {
     const { data: user } = await supabase
       .from('users')
       .select('role, is_committee')
       .eq('id', req.user.id)
-      .single();
+      .single()
 
     if (!user || (user.role !== 'admin' && !user.is_committee)) {
-      return res.status(403).json({ message: 'Only committee members can send messages here' });
+      return res.status(403).json({ message: 'Committee members only' })
     }
 
-    const { content } = req.body;
-    if (!content?.trim()) return res.status(400).json({ message: 'Content required' });
+    const { content } = req.body
+    if (!content?.trim()) return res.status(400).json({ message: 'Content required' })
+
+    // Get committee channel id
+    const { data: channel } = await supabase
+      .from('channels')
+      .select('id')
+      .eq('name', 'committee')
+      .single()
+
+    if (!channel) return res.status(404).json({ message: 'Committee channel not found' })
 
     const { data, error } = await supabase
-      .from('committee_messages')
+      .from('messages')
       .insert([{
         sender_id: req.user.id,
+        channel_id: channel.id,
         content: content.trim()
       }])
       .select(`
         *,
         sender:sender_id(id, username, full_name, profile_photo_url, committee_post)
       `)
-      .single();
+      .single()
 
-    if (error) throw error;
-    res.status(201).json(data);
+    if (error) throw error
+    res.status(201).json(data)
   } catch (error) {
-    console.error('Committee message error:', error);
-    res.status(500).json({ message: 'Failed to send message' });
+    console.error('Committee message error:', error)
+    res.status(500).json({ message: 'Failed to send message' })
   }
-});
+})
 
 module.exports = router;
