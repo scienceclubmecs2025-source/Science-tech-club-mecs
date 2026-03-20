@@ -6,11 +6,32 @@ const app = express();
 const supabase = require('./config/supabase');
 const auth = require('./middleware/auth');
 
-const requestsRouter = require('./routes/requests');
-app.use('/api/requests', requestsRouter);
+// ✅ CORS must be FIRST — before everything including routes
+app.use(cors({
+  origin: [
+    'https://science-and-tech-club-mecs.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}))
 
+// ✅ Handle ALL preflight OPTIONS requests
+app.options('*', cors({
+  origin: [
+    'https://science-and-tech-club-mecs.onrender.com',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}))
 
-app.use(cors());
 app.use(express.json());
 
 // ── Root & health ────────────────────────────────────────────────
@@ -176,14 +197,7 @@ app.put('/api/tasks/:id', auth, async (req, res) => {
     const { title, description, status, priority, due_date } = req.body;
     const { data, error } = await supabase
       .from('tasks')
-      .update({
-        title,
-        description,
-        status,
-        priority,
-        due_date,
-        updated_at: new Date().toISOString()
-      })
+      .update({ title, description, status, priority, due_date, updated_at: new Date().toISOString() })
       .eq('id', req.params.id)
       .select()
       .single();
@@ -196,10 +210,7 @@ app.put('/api/tasks/:id', auth, async (req, res) => {
 
 app.delete('/api/tasks/:id', auth, async (req, res) => {
   try {
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', req.params.id);
+    const { error } = await supabase.from('tasks').delete().eq('id', req.params.id);
     if (error) throw error;
     res.json({ message: 'Task deleted' });
   } catch (error) {
@@ -244,7 +255,6 @@ app.get('/api/projects/my-projects', auth, async (req, res) => {
 
     const allProjects = [...(created || []), ...memberProjects];
     const unique = Array.from(new Map(allProjects.map(p => [p.id, p])).values());
-
     res.json(unique);
   } catch (error) {
     console.error('My projects error:', error);
@@ -255,7 +265,8 @@ app.get('/api/projects/my-projects', auth, async (req, res) => {
 // ── Route files ──────────────────────────────────────────────────
 let authRoutes, userRoutes, courseRoutes, projectRoutes, eventRoutes,
     announcementRoutes, messageRoutes, configRoutes, adminRoutes,
-    quizRoutes, chatbotRoutes, reportRoutes, friendRoutes, channelRoutes
+    quizRoutes, chatbotRoutes, reportRoutes, friendRoutes, channelRoutes,
+    requestsRouter
 
 try { authRoutes         = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:', e.message) }
 try { userRoutes         = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:', e.message) }
@@ -271,6 +282,7 @@ try { chatbotRoutes      = require('./routes/chatbot')       } catch(e) { consol
 try { reportRoutes       = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:', e.message) }
 try { friendRoutes       = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:', e.message) }
 try { channelRoutes      = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:', e.message) }
+try { requestsRouter     = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:', e.message) }
 
 // ── Mount routes ─────────────────────────────────────────────────
 if (authRoutes)         app.use('/api/auth',          authRoutes)
@@ -287,6 +299,7 @@ if (chatbotRoutes)      app.use('/api/chatbot',       chatbotRoutes)
 if (reportRoutes)       app.use('/api/reports',       reportRoutes)
 if (friendRoutes)       app.use('/api/friends',       friendRoutes)
 if (channelRoutes)      app.use('/api/channels',      channelRoutes)
+if (requestsRouter)     app.use('/api/requests',      requestsRouter)  // ✅ moved here
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
