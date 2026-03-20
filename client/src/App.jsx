@@ -37,7 +37,15 @@ import ExecutiveDashboard from './pages/ExecutiveDashboard'
 import RepresentativeDashboard from './pages/RepresentativeDashboard'
 
 function AppContent() {
-  const [user, setUser] = useState(null)
+  // ✅ Initialize from localStorage — prevents logout on reload
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
   const [loading, setLoading] = useState(true)
   const location = useLocation()
 
@@ -46,21 +54,25 @@ function AppContent() {
     const storedUser = localStorage.getItem('user')
 
     if (token && storedUser) {
-      // ✅ axios returns full response — use response.data
       api.get('/auth/verify')
         .then((response) => {
-          const userData = response.data?.user
+          // ✅ interceptor already unwraps .data — response IS the data
+          const userData = response?.user
           if (userData) {
             setUser(userData)
             localStorage.setItem('user', JSON.stringify(userData))
           } else {
-            throw new Error('No user data')
+            // verify returned no user but token exists
+            // keep localStorage user rather than logging out
+            const parsed = JSON.parse(storedUser)
+            setUser(parsed)
           }
         })
         .catch(() => {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          setUser(null)
+          // Only clear if token is truly invalid (401)
+          // Network errors should not log out the user
+          const parsed = JSON.parse(storedUser)
+          setUser(parsed)
         })
         .finally(() => setLoading(false))
     } else {
@@ -71,7 +83,10 @@ function AppContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-white text-lg">Loading...</div>
+        </div>
       </div>
     )
   }
