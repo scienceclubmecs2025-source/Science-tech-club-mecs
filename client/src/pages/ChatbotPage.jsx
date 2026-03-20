@@ -50,7 +50,7 @@ export default function ChatbotPage() {
             <div>
               <h1 className="text-2xl font-bold text-white">Club Assistant</h1>
               <p className="text-sm text-blue-100 flex items-center gap-1 justify-center">
-                <Sparkles className="w-3 h-3" /> S&T Club Guide + Gemini AI
+                <Sparkles className="w-3 h-3" /> S&T Club Guide
               </p>
             </div>
           </div>
