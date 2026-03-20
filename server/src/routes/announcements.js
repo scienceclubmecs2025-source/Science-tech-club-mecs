@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
       .from('announcements')
       .select(`
         *,
-        creator:created_by(id, username, full_name, profile_photo_url)
+        creator:created_by(id, username, full_name)
       `)
       .order('created_at', { ascending: false });
 
@@ -51,15 +51,11 @@ router.post('/', auth, async (req, res) => {
       }])
       .select(`
         *,
-        creator:created_by(id, username, full_name, profile_photo_url)
+        creator:created_by(id, username, full_name)
       `)
       .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
-      throw error;
-    }
-
+    if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
     console.error('Create announcement error:', error);
