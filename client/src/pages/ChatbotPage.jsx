@@ -21,8 +21,10 @@ export default function ChatbotPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/chatbot', { message: userMessage });
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      const res = await api.post('/chatbot', { message: userMessage });
+      // ✅ interceptor already unwraps .data — res IS the data
+      const reply = res.reply || 'No response received.'
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (error) {
       const msg =
         error.response?.data?.message ||
@@ -36,13 +38,9 @@ export default function ChatbotPage() {
     }
   };
 
-  const clearChat = async () => {
-    try {
-      await api.delete('/chatbot/history');
-      setMessages([]);
-    } catch (error) {
-      console.error('Clear history failed:', error);
-    }
+  const clearChat = () => {
+    // ✅ local clear only — no backend endpoint needed
+    setMessages([]);
   };
 
   const handleKeyPress = (e) => {
@@ -61,7 +59,7 @@ export default function ChatbotPage() {
             <MessageCircle className="w-8 h-8 text-white" />
             <div>
               <h1 className="text-2xl font-bold text-white">Club Assistant</h1>
-              <p className="text-sm text-blue-100">Powered by Google Gemini</p>
+              <p className="text-sm text-blue-100">S&T Club Guide</p>
             </div>
           </div>
           {messages.length > 0 && (
@@ -75,6 +73,30 @@ export default function ChatbotPage() {
           )}
         </div>
 
+        {/* Quick suggestions */}
+        {messages.length === 0 && (
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {[
+              '📅 How do I view events?',
+              '🚀 How do I create a project?',
+              '📚 Where are the courses?',
+              '💬 How do I send a message?',
+              '👤 How do I edit my profile?',
+              '⚙️ What is my dashboard?'
+            ].map((suggestion, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setInput(suggestion.slice(3))
+                }}
+                className="text-left text-sm px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-gray-300 hover:border-blue-500 hover:text-white transition"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Messages */}
         <div className="space-y-4 mb-6 max-h-[70vh] overflow-y-auto bg-gray-900/50 backdrop-blur-xl rounded-3xl p-6 border border-gray-700 shadow-2xl">
           {messages.length === 0 ? (
@@ -82,7 +104,7 @@ export default function ChatbotPage() {
               <MessageCircle className="w-20 h-20 mx-auto mb-6 opacity-40" />
               <h3 className="text-xl font-medium mb-2">Ready to help!</h3>
               <p className="text-lg">
-                Ask about club events, projects, courses, robotics, AI, or web dev
+                Ask me anything about the S&T Club platform
               </p>
             </div>
           ) : (
@@ -110,7 +132,7 @@ export default function ChatbotPage() {
               <div className="bg-gray-800/80 backdrop-blur text-white p-4 rounded-2xl border border-gray-700 shadow-lg">
                 <div className="flex items-center gap-3">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                  <span className="font-medium">Club Assistant is thinking...</span>
+                  <span className="font-medium">Thinking...</span>
                 </div>
               </div>
             </div>
@@ -124,7 +146,7 @@ export default function ChatbotPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ask about events, projects, courses, robotics, AI, web dev..."
+            placeholder="Ask about events, projects, courses, messages, profile..."
             rows="1"
             className="flex-1 max-h-32 resize-none bg-black/50 border border-gray-600 rounded-2xl px-5 py-4 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 transition-all"
             disabled={loading}
