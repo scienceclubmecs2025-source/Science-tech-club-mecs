@@ -3,7 +3,9 @@ const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
 
-// Helper — normalize tech_stack to array regardless of input type
+const VALID_STATUSES = ['active', 'in_progress', 'completed', 'cancelled', 'paused']
+
+// Helper — normalize tech_stack to array
 const normalizeTechStack = (tech_stack) => {
   if (Array.isArray(tech_stack)) return tech_stack.filter(Boolean)
   if (typeof tech_stack === 'string' && tech_stack.trim())
@@ -58,7 +60,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create project — any logged-in user
+// Create project
 router.post('/', auth, async (req, res) => {
   try {
     const { title, description, tech_stack, vacancies, github_url, status } = req.body;
@@ -67,15 +69,18 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Title and description are required' });
     }
 
+    // ✅ Validate status before hitting DB
+    const safeStatus = VALID_STATUSES.includes(status) ? status : 'active'
+
     const { data, error } = await supabase
       .from('projects')
       .insert([{
         title,
         description,
-        tech_stack:  normalizeTechStack(tech_stack),   // ✅ always an array
+        tech_stack:  normalizeTechStack(tech_stack),
         vacancies:   Number(vacancies) || 0,
         github_url:  github_url || null,
-        status:      status || 'active',
+        status:      safeStatus,
         created_by:  req.user.id
       }])
       .select(`
@@ -124,15 +129,17 @@ router.put('/:id', auth, async (req, res) => {
 
     const { title, description, tech_stack, vacancies, github_url, status } = req.body;
 
+    const safeStatus = VALID_STATUSES.includes(status) ? status : 'active'
+
     const { data, error } = await supabase
       .from('projects')
       .update({
         title,
         description,
-        tech_stack:  normalizeTechStack(tech_stack),   // ✅ always an array
+        tech_stack:  normalizeTechStack(tech_stack),
         vacancies:   Number(vacancies) || 0,
         github_url:  github_url || null,
-        status,
+        status:      safeStatus,
         updated_at:  new Date().toISOString()
       })
       .eq('id', req.params.id)
