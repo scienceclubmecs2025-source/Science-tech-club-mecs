@@ -6,6 +6,10 @@ const app = express();
 const supabase = require('./config/supabase');
 const auth = require('./middleware/auth');
 
+const requestsRouter = require('./routes/requests');
+app.use('/api/requests', requestsRouter);
+
+
 app.use(cors());
 app.use(express.json());
 
