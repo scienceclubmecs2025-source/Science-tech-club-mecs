@@ -82,7 +82,7 @@ export default function ChatbotButton() {
                     ST Club Assistant <Sparkles className="w-4 h-4" />
                   </h3>
                   <p className="text-xs text-green-100">
-                    {loading ? 'Typing...' : 'Online • S&T Guide + Gemini AI'}
+                    {loading ? 'Typing...' : 'Online • S&T Guide'}
                   </p>
                 </div>
               </div>
