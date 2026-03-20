@@ -3,38 +3,41 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import api from '../services/api'
 
+// ✅ Must match DB constraint exactly
+const VALID_STATUSES = [
+  { value: 'active',      label: 'Active — looking for members' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed',   label: 'Completed' },
+  { value: 'cancelled',   label: 'Cancelled' },
+  { value: 'paused',      label: 'Paused' },
+]
+
 export default function CreateProjectPage() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
+    title:      '',
+    description:'',
     github_url: '',
-    vacancies: 0,
-    status: 'active'
+    vacancies:  0,
+    status:     'active'
   })
-  const [techInput, setTechInput] = useState('')
-  const [techStack, setTechStack] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [techInput, setTechInput]   = useState('')
+  const [techStack, setTechStack]   = useState([])
+  const [loading,   setLoading]     = useState(false)
+  const [error,     setError]       = useState('')
 
   const addTech = () => {
     const trimmed = techInput.trim()
     if (trimmed && !techStack.includes(trimmed)) {
-      setTechStack([...techStack, trimmed])
+      setTechStack(prev => [...prev, trimmed])
     }
     setTechInput('')
   }
 
-  const removeTech = (tech) => {
-    setTechStack(techStack.filter(t => t !== tech))
-  }
+  const removeTech = (tech) => setTechStack(prev => prev.filter(t => t !== tech))
 
   const handleTechKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addTech()
-    }
-    if (e.key === ',') {
+    if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
       addTech()
     }
@@ -47,7 +50,7 @@ export default function CreateProjectPage() {
     try {
       await api.post('/projects', {
         ...formData,
-        vacancies: Number(formData.vacancies) || 0,
+        vacancies:  Number(formData.vacancies) || 0,
         tech_stack: techStack   // ✅ always a proper array
       })
       navigate('/projects')
@@ -79,6 +82,7 @@ export default function CreateProjectPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
           {/* Title */}
           <div>
             <label className="block text-white mb-2">Project Title *</label>
@@ -101,7 +105,7 @@ export default function CreateProjectPage() {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white focus:outline-none focus:border-blue-600"
-              placeholder="Describe your project"
+              placeholder="Describe your project, goals, and what you're building"
             />
           </div>
 
@@ -115,7 +119,7 @@ export default function CreateProjectPage() {
                 onChange={(e) => setTechInput(e.target.value)}
                 onKeyDown={handleTechKeyDown}
                 className="flex-1 px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white focus:outline-none focus:border-blue-600"
-                placeholder="e.g. React — press Enter or comma to add"
+                placeholder="Type a technology, press Enter or comma to add"
               />
               <button
                 type="button"
@@ -164,6 +168,7 @@ export default function CreateProjectPage() {
             <input
               type="number"
               min={0}
+              max={50}
               value={formData.vacancies}
               onChange={(e) => setFormData({ ...formData, vacancies: e.target.value })}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white focus:outline-none focus:border-blue-600"
@@ -178,9 +183,9 @@ export default function CreateProjectPage() {
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white focus:outline-none focus:border-blue-600"
             >
-              <option value="active">Active — looking for members</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
+              {VALID_STATUSES.map(s => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
             </select>
           </div>
 
@@ -191,6 +196,7 @@ export default function CreateProjectPage() {
           >
             {loading ? 'Creating...' : 'Create Project'}
           </button>
+
         </form>
       </div>
     </div>
