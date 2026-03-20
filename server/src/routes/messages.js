@@ -3,17 +3,33 @@ const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Helper — resolve channel name or UUID to channel id
+const resolveChannelId = async (channelId) => {
+  if (uuidRegex.test(channelId)) return channelId
+  const { data } = await supabase
+    .from('channels')
+    .select('id')
+    .eq('name', channelId)
+    .single()
+  return data?.id || null
+}
+
 // ── Channel messages ──────────────────────────────────────────────
 
 router.get('/channel/:channelId', auth, async (req, res) => {
   try {
+    const channelId = await resolveChannelId(req.params.channelId)
+    if (!channelId) return res.status(404).json({ message: 'Channel not found' })
+
     const { data, error } = await supabase
       .from('messages')
       .select(`
         *,
         sender:sender_id(id, username, full_name, profile_photo_url)
       `)
-      .eq('channel_id', req.params.channelId)
+      .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
       .limit(100)
 
@@ -27,6 +43,9 @@ router.get('/channel/:channelId', auth, async (req, res) => {
 
 router.post('/channel/:channelId', auth, async (req, res) => {
   try {
+    const channelId = await resolveChannelId(req.params.channelId)
+    if (!channelId) return res.status(404).json({ message: 'Channel not found' })
+
     const { content } = req.body
     if (!content?.trim()) return res.status(400).json({ message: 'Content required' })
 
@@ -34,7 +53,7 @@ router.post('/channel/:channelId', auth, async (req, res) => {
       .from('messages')
       .insert([{
         sender_id: req.user.id,
-        channel_id: req.params.channelId,
+        channel_id: channelId,
         content: content.trim()
       }])
       .select(`
@@ -127,18 +146,12 @@ router.get('/unread-count', auth, async (req, res) => {
   }
 })
 
-// ── Committee chat (uses committee channel) ───────────────────────
+// ── Committee chat ────────────────────────────────────────────────
 
 router.get('/committee-chat', auth, async (req, res) => {
   try {
-    // Get committee channel id
-    const { data: channel } = await supabase
-      .from('channels')
-      .select('id')
-      .eq('name', 'committee')
-      .single()
-
-    if (!channel) return res.json([])
+    const channelId = await resolveChannelId('committee')
+    if (!channelId) return res.json([])
 
     const { data, error } = await supabase
       .from('messages')
@@ -146,7 +159,7 @@ router.get('/committee-chat', auth, async (req, res) => {
         *,
         sender:sender_id(id, username, full_name, profile_photo_url, committee_post)
       `)
-      .eq('channel_id', channel.id)
+      .eq('channel_id', channelId)
       .order('created_at', { ascending: true })
       .limit(100)
 
@@ -173,20 +186,14 @@ router.post('/committee-chat', auth, async (req, res) => {
     const { content } = req.body
     if (!content?.trim()) return res.status(400).json({ message: 'Content required' })
 
-    // Get committee channel id
-    const { data: channel } = await supabase
-      .from('channels')
-      .select('id')
-      .eq('name', 'committee')
-      .single()
-
-    if (!channel) return res.status(404).json({ message: 'Committee channel not found' })
+    const channelId = await resolveChannelId('committee')
+    if (!channelId) return res.status(404).json({ message: 'Committee channel not found' })
 
     const { data, error } = await supabase
       .from('messages')
       .insert([{
         sender_id: req.user.id,
-        channel_id: channel.id,
+        channel_id: channelId,
         content: content.trim()
       }])
       .select(`
