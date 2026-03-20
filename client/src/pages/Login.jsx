@@ -13,19 +13,19 @@ export default function Login({ setUser }) {
     setLoading(true)
     try {
       const response = await api.post('/auth/login', credentials)
-      
-      // ✅ axios wraps response in .data
-      const token = response.data.token
-      const user = response.data.user
 
-      console.log('Login success:', { token: !!token, user })
+      // ✅ api interceptor already unwraps .data — so response IS the data
+      const token = response.token
+      const user = response.user
+
+      if (!token || !user) throw new Error('Invalid response from server')
 
       localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify(user))
       setUser(user)
       navigate('/dashboard')
     } catch (error) {
-      alert(error.response?.data?.message || 'Login failed')
+      alert(error.response?.data?.message || error.message || 'Login failed')
     } finally {
       setLoading(false)
     }
