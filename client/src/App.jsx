@@ -35,6 +35,11 @@ import DeptViceHeadDashboard from './pages/DeptViceHeadDashboard'
 import DeveloperDashboard from './pages/DeveloperDashboard'
 import ExecutiveDashboard from './pages/ExecutiveDashboard'
 import RepresentativeDashboard from './pages/RepresentativeDashboard'
+import RequestProfilePage from './pages/RequestProfilePage'
+import RequestPasswordPage from './pages/RequestPasswordPage'
+
+// inside <Routes> — public routes (no auth needed)
+
 
 function AppContent() {
   // ✅ Initialize from localStorage — prevents logout on reload
@@ -142,6 +147,9 @@ function AppContent() {
         <Route path="/tasks"               element={user ? <TasksPage />          : <Navigate to="/login" replace />} />
         <Route path="/messages"            element={user ? <MessagesPage />       : <Navigate to="/login" replace />} />
         <Route path="/messages/:channelId" element={user ? <MessagesPage />       : <Navigate to="/login" replace />} />
+        <Route path="/request-profile"  element={<RequestProfilePage />} />
+        <Route path="/request-password" element={<RequestPasswordPage />} />
+
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
