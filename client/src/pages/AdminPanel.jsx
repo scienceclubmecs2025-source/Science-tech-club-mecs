@@ -35,9 +35,12 @@ export default function AdminPanel() {
     address: '', phone: '', email: '', guardian_name: '',
     guardian_number: '', field_of_interest: ''
   })
+
+  // ── CHANGED: faculty state now uses full_name + emp_code ──
   const [newFaculty, setNewFaculty] = useState({
-    username: '', email: '', department: '', employmentid: ''
+    full_name: '', emp_code: '', department: ''
   })
+
   const [config, setConfig] = useState({
     site_name: 'Science & Tech Club', logo_url: '', mecs_logo_url: '',
     theme_mode: 'dark', primary_color: '#3b82f6', watermark_opacity: '0.25'
@@ -81,9 +84,9 @@ export default function AdminPanel() {
         api.get('/events').catch(() => []),
         api.get('/projects').catch(() => [])
       ])
-      const users    = Array.isArray(u) ? u : []
-      const evs      = Array.isArray(e) ? e : []
-      const projs    = Array.isArray(p) ? p : []
+      const users = Array.isArray(u) ? u : []
+      const evs   = Array.isArray(e) ? e : []
+      const projs = Array.isArray(p) ? p : []
       setStats({
         total_users:       users.length,
         committee_members: users.filter(x => x.is_committee).length,
@@ -119,7 +122,6 @@ export default function AdminPanel() {
     }
   }
 
-  // Open accept modal and load existing UIDs
   const openAcceptModal = async (req) => {
     setAcceptModal(req)
     setAssignedUID(req.roll_number || '')
@@ -140,9 +142,7 @@ export default function AdminPanel() {
     if (!confirm(`Create account with Unique ID: ${assignedUID}?`)) return
     setAccepting(true)
     try {
-      await api.put(`/requests/profile/${acceptModal.id}/accept`, {
-        unique_id: assignedUID.trim()
-      })
+      await api.put(`/requests/profile/${acceptModal.id}/accept`, { unique_id: assignedUID.trim() })
       alert('✅ Profile created! Credentials sent to user email.')
       setAcceptModal(null)
       setAssignedUID('')
@@ -164,9 +164,7 @@ export default function AdminPanel() {
       fetchRequests()
     } catch (error) {
       alert('Failed to reject request')
-    } finally {
-      setProcessingId(null)
-    }
+    } finally { setProcessingId(null) }
   }
 
   const handleApprovePassword = async (id) => {
@@ -178,9 +176,7 @@ export default function AdminPanel() {
       fetchRequests()
     } catch (error) {
       alert(error?.response?.data?.message || 'Failed to reset password')
-    } finally {
-      setProcessingId(null)
-    }
+    } finally { setProcessingId(null) }
   }
 
   const handleRejectPassword = async (id) => {
@@ -192,9 +188,7 @@ export default function AdminPanel() {
       fetchRequests()
     } catch (error) {
       alert('Failed to reject')
-    } finally {
-      setProcessingId(null)
-    }
+    } finally { setProcessingId(null) }
   }
 
   const handleGenerateReport = async () => {
@@ -211,9 +205,7 @@ export default function AdminPanel() {
       alert('Report generated successfully!')
     } catch (error) {
       alert('Failed to generate report.')
-    } finally {
-      setGeneratingReport(false)
-    }
+    } finally { setGeneratingReport(false) }
   }
 
   const handleAddStudent = async (e) => {
@@ -226,14 +218,19 @@ export default function AdminPanel() {
     } catch (error) { alert(error.response?.data?.message || 'Failed to add student') }
   }
 
+  // ── CHANGED: sends full_name + emp_code to new backend route ──
   const handleAddFaculty = async (e) => {
     e.preventDefault()
     try {
-      const username = newFaculty.email.split('@')[0]
-      await api.post('/admin/add-faculty', { username, email: newFaculty.email, password: newFaculty.employmentid, employment_id: newFaculty.employmentid, department: newFaculty.department })
-      alert('Faculty added successfully')
-      setNewFaculty({ username: '', email: '', department: '', employmentid: '' })
-      fetchDashboard(); fetchAllUsers()
+      await api.post('/admin/add-faculty', {
+        full_name:  newFaculty.full_name,
+        emp_code:   newFaculty.emp_code,
+        department: newFaculty.department
+      })
+      alert(`Faculty added!\nUsername: ${newFaculty.emp_code}\nPassword: ${newFaculty.emp_code}\n(Faculty can change these from their profile)`)
+      setNewFaculty({ full_name: '', emp_code: '', department: '' })
+      fetchDashboard()
+      fetchAllUsers()
     } catch (error) { alert(error.response?.data?.message || 'Failed to add faculty') }
   }
 
@@ -280,7 +277,8 @@ export default function AdminPanel() {
     const formData = new FormData(); formData.append('file', file)
     try {
       const { data } = await api.post('/admin/upload-faculty', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      alert(`${data.message}`); fetchDashboard(); fetchAllUsers(); e.target.value = null
+      alert(`${data.message}\n${data.errors?.length ? 'Errors:\n' + data.errors.join('\n') : ''}`)
+      fetchDashboard(); fetchAllUsers(); e.target.value = null
     } catch (error) { alert(error.response?.data?.message || 'Failed to upload faculty') }
   }
 
@@ -333,12 +331,20 @@ export default function AdminPanel() {
     catch (error) { alert('Failed to activate format') }
   }
 
+  // ── CHANGED: faculty CSV template updated to new format ──
   const downloadCSVTemplate = (type) => {
     let csvContent = ''
     if (type === 'students') {
-      csvContent = ['UNIQUE_ID,NAME,ROLL-NO,BRANCH,YEAR,ADDRESS,PHONE NO,EMAIL ID,FATHER/GUARDIAN NAME,FATHER/GUARDIAN NUMBER,FIELD OF INTEREST', '2024CSE001,Ravi Kumar,21R11A0501,CSE,1,Hyderabad,9876543210,ravi@example.com,Suresh Kumar,9123456780,AI & ML'].join('\n')
+      csvContent = [
+        'UNIQUE_ID,NAME,ROLL-NO,BRANCH,YEAR,ADDRESS,PHONE NO,EMAIL ID,FATHER/GUARDIAN NAME,FATHER/GUARDIAN NUMBER,FIELD OF INTEREST',
+        '2024CSE001,Ravi Kumar,21R11A0501,CSE,1,Hyderabad,9876543210,ravi@example.com,Suresh Kumar,9123456780,AI & ML'
+      ].join('\n')
     } else {
-      csvContent = ['email,employment_id,department', 'drsmith@college.edu,EMP12345,CSE'].join('\n')
+      csvContent = [
+        'SNo,Emp code,Employee Name',
+        '1,EMP001,Dr. Ravi Kumar',
+        '2,EMP002,Prof. Anita Sharma'
+      ].join('\n')
     }
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -469,8 +475,6 @@ export default function AdminPanel() {
               <ClipboardList className="w-5 h-5 text-blue-400" />
               <h2 className="text-lg font-semibold text-white">Member Requests</h2>
             </div>
-
-            {/* Sub-tabs */}
             <div className="flex gap-2">
               <button
                 onClick={() => setRequestsTab('profile')}
@@ -498,7 +502,6 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* Profile Requests list */}
             {requestsTab === 'profile' && (
               <div className="space-y-3">
                 {profileRequests.length === 0 ? (
@@ -548,7 +551,6 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Password Requests list */}
             {requestsTab === 'password' && (
               <div className="space-y-3">
                 {passwordRequests.length === 0 ? (
@@ -598,6 +600,7 @@ export default function AdminPanel() {
         {/* ── USERS ── */}
         {activeTab === 'users' && (
           <div className="space-y-6">
+
             {/* Bulk Upload */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><Upload className="w-4 h-4 text-blue-400" /> Bulk Upload</h3>
@@ -613,9 +616,13 @@ export default function AdminPanel() {
                     <button onClick={() => downloadCSVTemplate('students')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"><Download className="w-4 h-4" /></button>
                   </div>
                 </div>
+
+                {/* ── CHANGED: updated faculty CSV description ── */}
                 <div className="space-y-2">
                   <p className="text-gray-300 text-sm font-medium">Upload Faculty CSV</p>
-                  <p className="text-gray-500 text-xs">Required: email, employment_id, department</p>
+                  <p className="text-gray-500 text-xs">
+                    Required: <span className="font-mono text-gray-400">SNo, Emp code, Employee Name</span> — username &amp; password auto-set to Emp Code
+                  </p>
                   <div className="flex gap-2">
                     <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium cursor-pointer transition">
                       <Upload className="w-4 h-4" /> Upload Faculty
@@ -650,24 +657,44 @@ export default function AdminPanel() {
               </form>
             </div>
 
-            {/* Add Faculty */}
+            {/* ── CHANGED: Add Faculty form — new fields ── */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><GraduationCap className="w-4 h-4 text-purple-400" /> Add Faculty</h3>
+              <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4 text-purple-400" /> Add Faculty
+              </h3>
+              <p className="text-gray-500 text-xs mb-4">
+                Username &amp; password will be set to the Emp Code. Faculty can change them from their profile.
+              </p>
               <form onSubmit={handleAddFaculty} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <input required type="email" placeholder="Email" value={newFaculty.email} onChange={e => setNewFaculty({...newFaculty, email: e.target.value})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
-                <input required placeholder="Employment ID" value={newFaculty.employmentid} onChange={e => setNewFaculty({...newFaculty, employmentid: e.target.value})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
-                <select value={newFaculty.department} onChange={e => setNewFaculty({...newFaculty, department: e.target.value})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500">
-                  <option value="">Department</option>
+                <input
+                  required
+                  placeholder="Employee Name"
+                  value={newFaculty.full_name}
+                  onChange={e => setNewFaculty({...newFaculty, full_name: e.target.value})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                />
+                <input
+                  required
+                  placeholder="Emp Code (e.g. EMP001)"
+                  value={newFaculty.emp_code}
+                  onChange={e => setNewFaculty({...newFaculty, emp_code: e.target.value.trim()})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500 font-mono"
+                />
+                <select
+                  value={newFaculty.department}
+                  onChange={e => setNewFaculty({...newFaculty, department: e.target.value})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                >
+                  <option value="">Department (optional)</option>
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-700 py-2.5 rounded-lg text-sm font-medium transition">Add Faculty</button>
+                <button type="submit" className="bg-purple-600 hover:bg-purple-700 py-2.5 rounded-lg text-sm font-medium transition">
+                  Add Faculty
+                </button>
               </form>
             </div>
 
-            {/* Users list */}
+            {/* Users List */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-white flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> All Users ({allUsers.length})</h3>
@@ -901,7 +928,6 @@ export default function AdminPanel() {
       {acceptModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-green-400" />
@@ -912,7 +938,6 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* Applicant summary */}
             <div className="bg-gray-800 rounded-xl p-4 mb-5 space-y-1 text-sm">
               <p className="text-white font-medium">{acceptModal.full_name}</p>
               <p className="text-gray-400">📧 {acceptModal.email}</p>
@@ -922,7 +947,6 @@ export default function AdminPanel() {
               {acceptModal.reason     && <p className="text-gray-500 italic text-xs mt-1">"{acceptModal.reason}"</p>}
             </div>
 
-            {/* UID input */}
             <div className="mb-4">
               <label className="block text-gray-300 text-sm font-medium mb-1">
                 Assign Unique ID <span className="text-red-400">*</span>
@@ -943,7 +967,6 @@ export default function AdminPanel() {
               </p>
             </div>
 
-            {/* Existing UIDs */}
             {existingUIDs.length > 0 && (
               <div className="mb-5">
                 <p className="text-gray-400 text-xs font-medium mb-2">
@@ -956,7 +979,6 @@ export default function AdminPanel() {
                         key={uid}
                         onClick={() => setAssignedUID(uid)}
                         className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 font-mono cursor-pointer transition"
-                        title="Click to use"
                       >
                         {uid}
                       </span>
@@ -967,7 +989,6 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex gap-3">
               <button
                 onClick={() => setAcceptModal(null)}
@@ -984,7 +1005,6 @@ export default function AdminPanel() {
                 {accepting ? 'Creating...' : 'Create Account'}
               </button>
             </div>
-
           </div>
         </div>
       )}
