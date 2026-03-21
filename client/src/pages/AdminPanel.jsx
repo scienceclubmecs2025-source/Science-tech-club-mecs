@@ -18,11 +18,17 @@ export default function AdminPanel() {
   const [reportFormats, setReportFormats] = useState([])
   const [generatingReport, setGeneratingReport] = useState(false)
 
-  // ── Requests state ───────────────────────────────────────────
+  // Requests state
   const [profileRequests,  setProfileRequests]  = useState([])
   const [passwordRequests, setPasswordRequests] = useState([])
   const [requestsTab,      setRequestsTab]      = useState('profile')
   const [processingId,     setProcessingId]     = useState(null)
+
+  // Accept modal state
+  const [acceptModal,  setAcceptModal]  = useState(null)
+  const [assignedUID,  setAssignedUID]  = useState('')
+  const [existingUIDs, setExistingUIDs] = useState([])
+  const [accepting,    setAccepting]    = useState(false)
 
   const [newStudent, setNewStudent] = useState({
     unique_id: '', name: '', roll_number: '', branch: '', year: 1,
@@ -76,13 +82,13 @@ export default function AdminPanel() {
         api.get('/projects').catch(() => [])
       ])
       const users    = Array.isArray(u) ? u : []
-      const events   = Array.isArray(e) ? e : []
-      const projects = Array.isArray(p) ? p : []
+      const evs      = Array.isArray(e) ? e : []
+      const projs    = Array.isArray(p) ? p : []
       setStats({
         total_users:       users.length,
         committee_members: users.filter(x => x.is_committee).length,
-        total_events:      events.length,
-        total_projects:    projects.length,
+        total_events:      evs.length,
+        total_projects:    projs.length,
         active_students:   users.filter(x => x.role === 'student').length,
         faculty_count:     users.filter(x => x.role === 'faculty').length,
       })
@@ -113,18 +119,39 @@ export default function AdminPanel() {
     }
   }
 
-  const handleAcceptProfile = async (id) => {
-    if (!confirm('Accept this profile request and create user account?')) return
-    setProcessingId(id)
+  // Open accept modal and load existing UIDs
+  const openAcceptModal = async (req) => {
+    setAcceptModal(req)
+    setAssignedUID(req.roll_number || '')
     try {
-      await api.put(`/requests/profile/${id}/accept`)
+      const users = await api.get('/users')
+      const uids = (Array.isArray(users) ? users : [])
+        .map(u => u.roll_number)
+        .filter(Boolean)
+        .sort()
+      setExistingUIDs(uids)
+    } catch (e) {
+      setExistingUIDs([])
+    }
+  }
+
+  const handleAcceptProfile = async () => {
+    if (!assignedUID.trim()) { alert('Please enter a Unique ID'); return }
+    if (!confirm(`Create account with Unique ID: ${assignedUID}?`)) return
+    setAccepting(true)
+    try {
+      await api.put(`/requests/profile/${acceptModal.id}/accept`, {
+        unique_id: assignedUID.trim()
+      })
       alert('✅ Profile created! Credentials sent to user email.')
+      setAcceptModal(null)
+      setAssignedUID('')
       fetchRequests()
       fetchDashboard()
     } catch (error) {
       alert(error?.response?.data?.message || 'Failed to accept request')
     } finally {
-      setProcessingId(null)
+      setAccepting(false)
     }
   }
 
@@ -175,15 +202,12 @@ export default function AdminPanel() {
     try {
       const [u, e, p] = await Promise.all([api.get('/users'), api.get('/events'), api.get('/projects')])
       const users = Array.isArray(u) ? u : []
-      const events = Array.isArray(e) ? e : []
-      const projects = Array.isArray(p) ? p : []
-      const reportStats = {
-        total_users: users.length, committee_members: users.filter(x => x.is_committee).length,
-        active_students: users.filter(x => x.role === 'student').length,
-        faculty_count: users.filter(x => x.role === 'faculty').length,
-        total_events: events.length, total_projects: projects.length
-      }
-      await generateStatisticsReport(reportStats, users, events, projects)
+      const evs   = Array.isArray(e) ? e : []
+      const projs = Array.isArray(p) ? p : []
+      await generateStatisticsReport(
+        { total_users: users.length, committee_members: users.filter(x => x.is_committee).length, active_students: users.filter(x => x.role === 'student').length, faculty_count: users.filter(x => x.role === 'faculty').length, total_events: evs.length, total_projects: projs.length },
+        users, evs, projs
+      )
       alert('Report generated successfully!')
     } catch (error) {
       alert('Failed to generate report.')
@@ -332,6 +356,8 @@ export default function AdminPanel() {
     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.pending}`}>{status}</span>
   }
 
+  const pendingCount = profileRequests.filter(r => r.status === 'pending').length + passwordRequests.filter(r => r.status === 'pending').length
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -344,14 +370,14 @@ export default function AdminPanel() {
   }
 
   const tabs = [
-    { id: 'overview',       label: 'Overview',     icon: Activity },
-    { id: 'users',          label: 'Users',        icon: Users },
-    { id: 'requests',       label: 'Requests',     icon: ClipboardList, badge: (profileRequests.filter(r => r.status === 'pending').length + passwordRequests.filter(r => r.status === 'pending').length) || null },
-    { id: 'announcements',  label: 'Announcements',icon: Bell },
-    { id: 'events',         label: 'Events',       icon: Calendar },
-    { id: 'projects',       label: 'Projects',     icon: BookOpen },
-    { id: 'reports',        label: 'Reports',      icon: FileText },
-    { id: 'config',         label: 'Config',       icon: Settings },
+    { id: 'overview',      label: 'Overview',      icon: Activity },
+    { id: 'users',         label: 'Users',         icon: Users },
+    { id: 'requests',      label: 'Requests',      icon: ClipboardList, badge: pendingCount || null },
+    { id: 'announcements', label: 'Announcements', icon: Bell },
+    { id: 'events',        label: 'Events',        icon: Calendar },
+    { id: 'projects',      label: 'Projects',      icon: BookOpen },
+    { id: 'reports',       label: 'Reports',       icon: FileText },
+    { id: 'config',        label: 'Config',        icon: Settings },
   ]
 
   return (
@@ -378,9 +404,7 @@ export default function AdminPanel() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap relative ${
-                  activeTab === tab.id
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -400,12 +424,12 @@ export default function AdminPanel() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {[
-                { label: 'Total Users',       value: stats?.total_users       || 0, color: 'blue'   },
-                { label: 'Students',          value: stats?.active_students   || 0, color: 'green'  },
-                { label: 'Faculty',           value: stats?.faculty_count     || 0, color: 'purple' },
-                { label: 'Committee',         value: stats?.committee_members || 0, color: 'yellow' },
-                { label: 'Events',            value: stats?.total_events      || 0, color: 'pink'   },
-                { label: 'Projects',          value: stats?.total_projects    || 0, color: 'indigo' },
+                { label: 'Total Users',  value: stats?.total_users       || 0 },
+                { label: 'Students',     value: stats?.active_students   || 0 },
+                { label: 'Faculty',      value: stats?.faculty_count     || 0 },
+                { label: 'Committee',    value: stats?.committee_members || 0 },
+                { label: 'Events',       value: stats?.total_events      || 0 },
+                { label: 'Projects',     value: stats?.total_projects    || 0 },
               ].map(s => (
                 <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-white">{s.value}</p>
@@ -429,7 +453,8 @@ export default function AdminPanel() {
                     {generatingReport ? 'Generating...' : '📊 Generate Statistics Report'}
                   </button>
                   <button onClick={() => setActiveTab('requests')} className="w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
-                    <ClipboardList className="w-4 h-4 text-yellow-400" /> View Pending Requests
+                    <ClipboardList className="w-4 h-4 text-yellow-400" />
+                    View Pending Requests {pendingCount > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingCount}</span>}
                   </button>
                 </div>
               </div>
@@ -437,7 +462,7 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ── REQUESTS TAB ── */}
+        {/* ── REQUESTS ── */}
         {activeTab === 'requests' && (
           <div className="space-y-6">
             <div className="flex items-center gap-3 mb-2">
@@ -473,7 +498,7 @@ export default function AdminPanel() {
               </button>
             </div>
 
-            {/* Profile Requests */}
+            {/* Profile Requests list */}
             {requestsTab === 'profile' && (
               <div className="space-y-3">
                 {profileRequests.length === 0 ? (
@@ -497,30 +522,23 @@ export default function AdminPanel() {
                           <span>📞 {req.phone || '—'}</span>
                           <span>👨‍👩‍👦 {req.guardian_phone || '—'}</span>
                         </div>
-                        {req.reason && (
-                          <p className="text-gray-500 text-xs mt-2 italic">"{req.reason}"</p>
-                        )}
-                        <p className="text-gray-600 text-xs mt-1">
-                          Submitted: {new Date(req.created_at).toLocaleString()}
-                        </p>
+                        {req.reason && <p className="text-gray-500 text-xs mt-2 italic">"{req.reason}"</p>}
+                        <p className="text-gray-600 text-xs mt-1">Submitted: {new Date(req.created_at).toLocaleString()}</p>
                       </div>
                       {req.status === 'pending' && (
                         <div className="flex gap-2 shrink-0">
                           <button
-                            onClick={() => handleAcceptProfile(req.id)}
-                            disabled={processingId === req.id}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium transition"
+                            onClick={() => openAcceptModal(req)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition"
                           >
-                            <Check className="w-4 h-4" />
-                            {processingId === req.id ? 'Creating...' : 'Accept'}
+                            <Check className="w-4 h-4" /> Accept
                           </button>
                           <button
                             onClick={() => handleRejectProfile(req.id)}
                             disabled={processingId === req.id}
                             className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition"
                           >
-                            <X className="w-4 h-4" />
-                            Reject
+                            <X className="w-4 h-4" /> Reject
                           </button>
                         </div>
                       )}
@@ -530,7 +548,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            {/* Password Requests */}
+            {/* Password Requests list */}
             {requestsTab === 'password' && (
               <div className="space-y-3">
                 {passwordRequests.length === 0 ? (
@@ -546,15 +564,9 @@ export default function AdminPanel() {
                           <h3 className="font-semibold text-white">@{req.username}</h3>
                           {statusBadge(req.status)}
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-400 mt-2">
-                          <span>📧 {req.email}</span>
-                        </div>
-                        {req.reason && (
-                          <p className="text-gray-500 text-xs mt-2 italic">"{req.reason}"</p>
-                        )}
-                        <p className="text-gray-600 text-xs mt-1">
-                          Submitted: {new Date(req.created_at).toLocaleString()}
-                        </p>
+                        <p className="text-gray-400 text-sm mt-1">📧 {req.email}</p>
+                        {req.reason && <p className="text-gray-500 text-xs mt-2 italic">"{req.reason}"</p>}
+                        <p className="text-gray-600 text-xs mt-1">Submitted: {new Date(req.created_at).toLocaleString()}</p>
                       </div>
                       {req.status === 'pending' && (
                         <div className="flex gap-2 shrink-0">
@@ -571,8 +583,7 @@ export default function AdminPanel() {
                             disabled={processingId === req.id}
                             className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition"
                           >
-                            <X className="w-4 h-4" />
-                            Reject
+                            <X className="w-4 h-4" /> Reject
                           </button>
                         </div>
                       )}
@@ -584,13 +595,12 @@ export default function AdminPanel() {
           </div>
         )}
 
-        {/* ── USERS TAB ── */}
+        {/* ── USERS ── */}
         {activeTab === 'users' && (
           <div className="space-y-6">
             {/* Bulk Upload */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><Upload className="w-4 h-4 text-blue-400" /> Bulk Upload</h3>
-              <p className="text-gray-400 text-sm mb-4">Upload students and faculty in bulk using CSV.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <p className="text-gray-300 text-sm font-medium">Upload Students CSV</p>
@@ -600,9 +610,7 @@ export default function AdminPanel() {
                       <Upload className="w-4 h-4" /> Upload Students
                       <input type="file" accept=".csv" onChange={handleUploadStudents} className="hidden" />
                     </label>
-                    <button onClick={() => downloadCSVTemplate('students')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition">
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => downloadCSVTemplate('students')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"><Download className="w-4 h-4" /></button>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -613,9 +621,7 @@ export default function AdminPanel() {
                       <Upload className="w-4 h-4" /> Upload Faculty
                       <input type="file" accept=".csv" onChange={handleUploadFaculty} className="hidden" />
                     </label>
-                    <button onClick={() => downloadCSVTemplate('faculty')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition">
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => downloadCSVTemplate('faculty')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"><Download className="w-4 h-4" /></button>
                   </div>
                 </div>
               </div>
@@ -626,7 +632,8 @@ export default function AdminPanel() {
               <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><UserPlus className="w-4 h-4 text-green-400" /> Add Student</h3>
               <form onSubmit={handleAddStudent} className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {[['unique_id','Unique ID'],['name','Full Name'],['roll_number','Roll Number'],['email','Email'],['phone','Phone'],['guardian_name','Guardian Name'],['guardian_number','Guardian Phone'],['address','Address'],['field_of_interest','Field of Interest']].map(([field, label]) => (
-                  <input key={field} type={field === 'email' ? 'email' : 'text'} placeholder={label} required={['unique_id','name','email'].includes(field)}
+                  <input key={field} type={field === 'email' ? 'email' : 'text'} placeholder={label}
+                    required={['unique_id','name','email'].includes(field)}
                     value={newStudent[field]} onChange={e => setNewStudent({...newStudent, [field]: e.target.value})}
                     className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
                 ))}
@@ -660,7 +667,7 @@ export default function AdminPanel() {
               </form>
             </div>
 
-            {/* Graduate & Users List */}
+            {/* Users list */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-white flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> All Users ({allUsers.length})</h3>
@@ -835,7 +842,7 @@ export default function AdminPanel() {
                 <input required placeholder="Academic Year (e.g. 2024-25)" value={reportFormData.academic_year} onChange={e => setReportFormData({...reportFormData, academic_year: e.target.value})}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
                 <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setReportFormData({...reportFormData, file: e.target.files[0]})}
-                  className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
+                  className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm" />
                 <button type="submit" disabled={uploadingReport} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
                   {uploadingReport ? 'Uploading...' : 'Upload Format'}
                 </button>
@@ -889,6 +896,99 @@ export default function AdminPanel() {
         )}
 
       </div>
+
+      {/* ── ACCEPT PROFILE MODAL ── */}
+      {acceptModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-green-400" />
+                Accept Profile Request
+              </h3>
+              <button onClick={() => setAcceptModal(null)} className="text-gray-400 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Applicant summary */}
+            <div className="bg-gray-800 rounded-xl p-4 mb-5 space-y-1 text-sm">
+              <p className="text-white font-medium">{acceptModal.full_name}</p>
+              <p className="text-gray-400">📧 {acceptModal.email}</p>
+              {acceptModal.department && <p className="text-gray-400">🏛️ {acceptModal.department} — Year {acceptModal.year}</p>}
+              {acceptModal.phone      && <p className="text-gray-400">📞 {acceptModal.phone}</p>}
+              {acceptModal.guardian_phone && <p className="text-gray-400">👨‍👩‍👦 Guardian: {acceptModal.guardian_phone}</p>}
+              {acceptModal.reason     && <p className="text-gray-500 italic text-xs mt-1">"{acceptModal.reason}"</p>}
+            </div>
+
+            {/* UID input */}
+            <div className="mb-4">
+              <label className="block text-gray-300 text-sm font-medium mb-1">
+                Assign Unique ID <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={assignedUID}
+                onChange={e => setAssignedUID(e.target.value)}
+                placeholder="e.g. 22A91A0501"
+                autoFocus
+                className="w-full px-3 py-2.5 bg-black border border-gray-600 rounded-lg text-white focus:outline-none focus:border-green-500 text-sm"
+              />
+              <p className="text-gray-500 text-xs mt-1">
+                Default password will be:&nbsp;
+                <span className="text-green-400 font-mono">
+                  {assignedUID || 'UniqueID'}@{acceptModal.guardian_phone || '0000000000'}
+                </span>
+              </p>
+            </div>
+
+            {/* Existing UIDs */}
+            {existingUIDs.length > 0 && (
+              <div className="mb-5">
+                <p className="text-gray-400 text-xs font-medium mb-2">
+                  Previously assigned Unique IDs ({existingUIDs.length}) — click to reference:
+                </p>
+                <div className="max-h-28 overflow-y-auto bg-black rounded-lg p-2 border border-gray-800">
+                  <div className="flex flex-wrap gap-1.5">
+                    {existingUIDs.map(uid => (
+                      <span
+                        key={uid}
+                        onClick={() => setAssignedUID(uid)}
+                        className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 font-mono cursor-pointer transition"
+                        title="Click to use"
+                      >
+                        {uid}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-gray-600 text-xs mt-1">⚠️ Make sure new UID is unique.</p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAcceptModal(null)}
+                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-300 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAcceptProfile}
+                disabled={accepting || !assignedUID.trim()}
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition"
+              >
+                <Check className="w-4 h-4" />
+                {accepting ? 'Creating...' : 'Create Account'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
