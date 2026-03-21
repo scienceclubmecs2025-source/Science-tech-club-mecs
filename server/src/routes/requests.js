@@ -2,28 +2,11 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 const auth = require('../middleware/auth');
-const { sendProfileRequestMail, sendPasswordChangedMail } = require('../services/mailer');
 const bcrypt = require('bcryptjs');
-
-// ── SQL to create tables (run once in Supabase) ───────────────────
-// CREATE TABLE profile_requests (
-//   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-//   full_name TEXT NOT NULL, email TEXT NOT NULL,
-//   roll_number TEXT, department TEXT, year TEXT,
-//   phone TEXT, guardian_phone TEXT, reason TEXT,
-//   status TEXT DEFAULT 'pending',
-//   created_at TIMESTAMPTZ DEFAULT NOW()
-// );
-// CREATE TABLE password_requests (
-//   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-//   username TEXT NOT NULL, email TEXT NOT NULL,
-//   reason TEXT, status TEXT DEFAULT 'pending',
-//   created_at TIMESTAMPTZ DEFAULT NOW()
-// );
 
 // ── Profile Requests ─────────────────────────────────────────────
 
-// Submit profile request (public)
+// ✅ PUBLIC — no auth needed
 router.post('/profile', async (req, res) => {
   try {
     const { full_name, email, roll_number, department, year, phone, guardian_phone, reason } = req.body
@@ -37,15 +20,19 @@ router.post('/profile', async (req, res) => {
     if (error) throw error
 
     // Notify admins, chair, vice chair
-    const { data: admins } = await supabase
-      .from('users')
-      .select('email')
-      .or('role.eq.admin,committee_post.eq.Chair,committee_post.eq.Vice Chair,committee_post.eq.Representative Head')
-
-    if (admins) {
-      for (const admin of admins) {
-        await sendProfileRequestMail(admin.email, { full_name, email, roll_number, department, year })
+    try {
+      const { sendProfileRequestMail } = require('../services/mailer')
+      const { data: admins } = await supabase
+        .from('users')
+        .select('email')
+        .or('role.eq.admin,committee_post.eq.Chair,committee_post.eq.Vice Chair,committee_post.eq.Representative Head')
+      if (admins) {
+        for (const admin of admins) {
+          await sendProfileRequestMail(admin.email, { full_name, email, roll_number, department, year })
+        }
       }
+    } catch (mailErr) {
+      console.error('Mail error (non-fatal):', mailErr.message)
     }
 
     res.status(201).json({ message: 'Profile request submitted successfully', id: data.id })
@@ -55,7 +42,30 @@ router.post('/profile', async (req, res) => {
   }
 })
 
-// Get all profile requests (admin/chair only)
+// ✅ PUBLIC — no auth needed
+router.post('/password', async (req, res) => {
+  try {
+    const { username, email, reason } = req.body
+    if (!username || !email) return res.status(400).json({ message: 'Username and email required' })
+
+    const { data: user } = await supabase.from('users').select('id, email').eq('username', username).single()
+    if (!user || user.email !== email) return res.status(404).json({ message: 'User not found or email mismatch' })
+
+    const { data, error } = await supabase
+      .from('password_requests')
+      .insert([{ username, email, reason, status: 'pending' }])
+      .select().single()
+
+    if (error) throw error
+    res.status(201).json({ message: 'Password reset request submitted', id: data.id })
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to submit request', error: error.message })
+  }
+})
+
+// ── Admin/Chair routes — auth required ───────────────────────────
+
+// Get all profile requests
 router.get('/profile', auth, async (req, res) => {
   try {
     const { data: me } = await supabase.from('users').select('role, committee_post').eq('id', req.user.id).single()
@@ -66,7 +76,6 @@ router.get('/profile', auth, async (req, res) => {
       .from('profile_requests')
       .select('*')
       .order('created_at', { ascending: false })
-
     if (error) throw error
     res.json(data || [])
   } catch (error) {
@@ -74,7 +83,7 @@ router.get('/profile', auth, async (req, res) => {
   }
 })
 
-// Accept profile request → create user account
+// Accept profile request → create user
 router.put('/profile/:id/accept', auth, async (req, res) => {
   try {
     const { data: me } = await supabase.from('users').select('role, committee_post').eq('id', req.user.id).single()
@@ -84,12 +93,10 @@ router.put('/profile/:id/accept', auth, async (req, res) => {
     const { data: request } = await supabase.from('profile_requests').select('*').eq('id', req.params.id).single()
     if (!request) return res.status(404).json({ message: 'Request not found' })
 
-    // Generate username and password
     const username = request.roll_number
       ? request.roll_number.toLowerCase().replace(/\s+/g, '')
       : request.email.split('@')[0]
 
-    // Password: UniqueID@GuardianPhone
     const uniqueId = request.roll_number || username
     const guardianPhone = request.guardian_phone || '0000000000'
     const rawPassword = `${uniqueId}@${guardianPhone}`
@@ -111,12 +118,14 @@ router.put('/profile/:id/accept', auth, async (req, res) => {
 
     if (createError) throw createError
 
-    // Mark request as accepted
     await supabase.from('profile_requests').update({ status: 'accepted' }).eq('id', req.params.id)
 
-    // Send welcome mail with credentials
-    const { sendProfileCreatedMail } = require('../services/mailer')
-    await sendProfileCreatedMail(newUser, rawPassword)
+    try {
+      const { sendProfileCreatedMail } = require('../services/mailer')
+      await sendProfileCreatedMail(newUser, rawPassword)
+    } catch (mailErr) {
+      console.error('Mail error (non-fatal):', mailErr.message)
+    }
 
     res.json({ message: 'Profile created and credentials sent', user: newUser })
   } catch (error) {
@@ -139,30 +148,7 @@ router.put('/profile/:id/reject', auth, async (req, res) => {
   }
 })
 
-// ── Password Requests ────────────────────────────────────────────
-
-// Submit password reset request (public)
-router.post('/password', async (req, res) => {
-  try {
-    const { username, email, reason } = req.body
-    if (!username || !email) return res.status(400).json({ message: 'Username and email required' })
-
-    const { data: user } = await supabase.from('users').select('id, email').eq('username', username).single()
-    if (!user || user.email !== email) return res.status(404).json({ message: 'User not found or email mismatch' })
-
-    const { data, error } = await supabase
-      .from('password_requests')
-      .insert([{ username, email, reason, status: 'pending' }])
-      .select().single()
-
-    if (error) throw error
-    res.status(201).json({ message: 'Password reset request submitted', id: data.id })
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to submit request', error: error.message })
-  }
-})
-
-// Get all password requests (admin/chair only)
+// Get all password requests
 router.get('/password', auth, async (req, res) => {
   try {
     const { data: me } = await supabase.from('users').select('role, committee_post').eq('id', req.user.id).single()
@@ -173,7 +159,6 @@ router.get('/password', auth, async (req, res) => {
       .from('password_requests')
       .select('*')
       .order('created_at', { ascending: false })
-
     if (error) throw error
     res.json(data || [])
   } catch (error) {
@@ -181,7 +166,7 @@ router.get('/password', auth, async (req, res) => {
   }
 })
 
-// Approve password reset — reset to UniqueID@GuardianPhone
+// Approve password reset
 router.put('/password/:id/approve', auth, async (req, res) => {
   try {
     const { data: me } = await supabase.from('users').select('role, committee_post').eq('id', req.user.id).single()
@@ -191,12 +176,7 @@ router.put('/password/:id/approve', auth, async (req, res) => {
     const { data: request } = await supabase.from('password_requests').select('*').eq('id', req.params.id).single()
     if (!request) return res.status(404).json({ message: 'Request not found' })
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', request.username)
-      .single()
-
+    const { data: user } = await supabase.from('users').select('*').eq('username', request.username).single()
     if (!user) return res.status(404).json({ message: 'User not found' })
 
     const uniqueId = user.roll_number || user.username
@@ -206,7 +186,13 @@ router.put('/password/:id/approve', auth, async (req, res) => {
 
     await supabase.from('users').update({ password: hashedPassword }).eq('id', user.id)
     await supabase.from('password_requests').update({ status: 'approved' }).eq('id', req.params.id)
-    await sendPasswordChangedMail(user, rawPassword)
+
+    try {
+      const { sendPasswordChangedMail } = require('../services/mailer')
+      await sendPasswordChangedMail(user, rawPassword)
+    } catch (mailErr) {
+      console.error('Mail error (non-fatal):', mailErr.message)
+    }
 
     res.json({ message: 'Password reset and email sent' })
   } catch (error) {
