@@ -1,11 +1,11 @@
 import express from 'express'
-import { supabase } from '../db.js'
-import { authenticateToken } from '../middleware/auth.js'
+import supabase from '../config/supabase.js'
+import auth from '../middleware/auth.js'
 
 const router = express.Router()
 
-// ── GET /team-templates?team=executive|representative|design ──
-router.get('/', authenticateToken, async (req, res) => {
+// GET /api/team-templates?team=executive|representative|design
+router.get('/', auth, async (req, res) => {
   try {
     const { team } = req.query
     let query = supabase
@@ -24,21 +24,19 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 })
 
-// ── POST /team-templates  (admin only) ──
-router.post('/', authenticateToken, async (req, res) => {
+// POST /api/team-templates  (admin only)
+router.post('/', auth, async (req, res) => {
   try {
     const { title, link, team } = req.body
 
-    if (!title || !link || !team) {
+    if (!title || !link || !team)
       return res.status(400).json({ message: 'title, link and team are required' })
-    }
 
     const { data: user } = await supabase
       .from('users').select('role').eq('id', req.user.id).single()
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'admin')
       return res.status(403).json({ message: 'Admin only' })
-    }
 
     const { data, error } = await supabase
       .from('team_templates')
@@ -54,15 +52,14 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 })
 
-// ── DELETE /team-templates/:id  (admin only) ──
-router.delete('/:id', authenticateToken, async (req, res) => {
+// DELETE /api/team-templates/:id  (admin only)
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { data: user } = await supabase
       .from('users').select('role').eq('id', req.user.id).single()
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'admin')
       return res.status(403).json({ message: 'Admin only' })
-    }
 
     const { error } = await supabase
       .from('team_templates').delete().eq('id', req.params.id)
