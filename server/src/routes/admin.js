@@ -126,6 +126,7 @@ router.post('/add-faculty', auth, adminAuth, async (req, res) => {
 // Format: UNIQUE_ID, NAME, ROLL-NO, BRANCH, YEAR, ADDRESS,
 //         PHONE NO, EMAIL ID, FATHER/GUARDIAN NAME,
 //         FATHER/GUARDIAN NUMBER, FIELD OF INTEREST
+
 router.post('/upload-students', auth, adminAuth, upload.single('file'), async (req, res) => {
   try {
     const results = []
@@ -133,7 +134,12 @@ router.post('/upload-students', auth, adminAuth, upload.single('file'), async (r
     const rows    = []
 
     await new Promise((resolve, reject) => {
-      const stream = Readable.from(req.file.buffer.toString('utf8'))
+      const cleaned = req.file.buffer
+        .toString('utf8')
+        .replace(/^\uFEFF/, '')      // strip BOM
+        .replace(/\r\n/g, '\n')      // normalize Windows line endings
+        .replace(/\r/g, '\n')        // normalize old Mac line endings
+      const stream = Readable.from(cleaned)
       stream.pipe(csv()).on('data', r => rows.push(r)).on('end', resolve).on('error', reject)
     })
 
@@ -142,22 +148,22 @@ router.post('/upload-students', auth, adminAuth, upload.single('file'), async (r
 
       const get = (...keys) => {
         for (const k of keys) {
-          const found = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase())
-          if (found && row[found]?.trim()) return row[found].trim()
+          const found = Object.keys(row).find(rk => rk.trim().replace(/\r/g, '').toLowerCase() === k.toLowerCase())
+          if (found && row[found]?.trim()) return row[found].trim().replace(/\r/g, '').replace(/\n/g, '')
         }
         return ''
       }
 
-      const unique_id         = get('UNIQUE_ID', 'unique_id', 'unique id')
+      const unique_id         = get('UNIQUE_ID', 'unique_id', 'unique id').replace(/\s/g, '')
       const name              = get('NAME', 'name')
       const roll_number       = get('ROLL-NO', 'roll_no', 'roll_number', 'rollno')
       const branch            = get('BRANCH', 'branch', 'department')
       const year              = get('YEAR', 'year')
       const address           = get('ADDRESS', 'address')
-      const phone             = get('PHONE NO', 'phone_no', 'phone', 'phoneno')
-      const email             = get('EMAIL ID', 'email_id', 'email')
-      const guardian_name     = get('FATHER/GUARDIAN NAME', 'guardian_name')
-      const guardian_number   = get('FATHER/GUARDIAN NUMBER', 'guardian_number')
+      const phone             = get('PHONE NO', 'phone_no', 'phone', 'phoneno').replace(/\s/g, '')
+      const email             = get('EMAIL ID', 'email_id', 'email').replace(/\s/g, '')
+      const guardian_name     = get('FATHER/GUARDIAN NAME', 'FATHERGUARDIAN NAME', 'guardian_name')
+      const guardian_number   = get('FATHER/GUARDIAN NUMBER', 'FATHERGUARDIAN NUMBER', 'guardian_number').replace(/\s/g, '')
       const field_of_interest = get('FIELD OF INTEREST', 'field_of_interest', 'field')
 
       if (!email || !unique_id || !guardian_number) {
@@ -168,6 +174,9 @@ router.post('/upload-students', auth, adminAuth, upload.single('file'), async (r
       const username       = email.split('@')[0].toLowerCase()
       const rawPassword    = `${unique_id}@${guardian_number}`
       const hashedPassword = await bcrypt.hash(rawPassword, 10)
+
+      // 🔍 Remove this log after confirming it works
+      console.log(`Row ${i+2}: username=${username} | password=${rawPassword}`)
 
       const { data, error } = await supabase.from('users').insert([{
         username,
