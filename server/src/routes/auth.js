@@ -1,76 +1,94 @@
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const supabase = require('../config/supabase');
-const auth = require('../middleware/auth');
+const express  = require('express')
+const router   = express.Router()
+const bcrypt   = require('bcryptjs')
+const jwt      = require('jsonwebtoken')
+const supabase = require('../config/supabase')
+const auth     = require('../middleware/auth')
 
-// Register (kept for compatibility)
+// Register
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role = 'student' } = req.body;
+    const { username, email, password, role = 'student' } = req.body
     const { data: existing } = await supabase
       .from('users').select('*')
-      .or(`username.eq.${username},email.eq.${email}`).single();
-    if (existing) return res.status(400).json({ message: 'User already exists' });
+      .or(`username.eq.${username},email.eq.${email}`).single()
+    if (existing) return res.status(400).json({ message: 'User already exists' })
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10)
     const { data: user, error } = await supabase
       .from('users')
       .insert([{ username, email, password: hashedPassword, role }])
-      .select().single();
-    if (error) throw error;
-    res.status(201).json({ message: 'User created successfully', userId: user.id });
+      .select().single()
+    if (error) throw error
+    res.status(201).json({ message: 'User created successfully', userId: user.id })
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Registration failed' });
+    console.error('Registration error:', error)
+    res.status(500).json({ message: 'Registration failed' })
   }
-});
+})
 
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = req.body
     const { data: user, error } = await supabase
-      .from('users').select('*').eq('username', username).single();
-    if (error || !user) return res.status(401).json({ message: 'Invalid credentials' });
+      .from('users').select('*').eq('username', username).single()
+    if (error || !user) return res.status(401).json({ message: 'Invalid credentials' })
 
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(401).json({ message: 'Invalid credentials' });
+    const validPassword = await bcrypt.compare(password, user.password)
+    if (!validPassword) return res.status(401).json({ message: 'Invalid credentials' })
 
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
-    );
-    delete user.password;
-    res.json({ token, user });
+    )
+    delete user.password
+    res.json({ token, user })
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Login failed' });
+    console.error('Login error:', error)
+    res.status(500).json({ message: 'Login failed' })
   }
-});
+})
 
-// Verify token
+// ✅ Verify token — returns FRESH user from DB (fixes stale localStorage)
 router.get('/verify', auth, async (req, res) => {
   try {
     const { data: user, error } = await supabase
-      .from('users').select('*').eq('id', req.user.id).single();
-    if (error) throw error;
-    delete user.password;
-    res.json({ user });
+      .from('users')
+      .select('id, username, email, full_name, role, is_committee, committee_post, department, year, phone, address, roll_number, unique_id, employment_id, guardian_phone, profile_photo_url, bio, field_of_interest, created_at')
+      .eq('id', req.user.id)
+      .single()
+    if (error) throw error
+    delete user.password
+    res.json({ user })
   } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+    res.status(401).json({ message: 'Invalid token' })
   }
-});
+})
+
+// ✅ /me — alias for verify, used by some components
+router.get('/me', auth, async (req, res) => {
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, email, full_name, role, is_committee, committee_post, department, year, phone, address, roll_number, unique_id, employment_id, guardian_phone, profile_photo_url, bio, field_of_interest, created_at')
+      .eq('id', req.user.id)
+      .single()
+    if (error) throw error
+    delete user.password
+    res.json(user)
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid token' })
+  }
+})
 
 // Logout
 router.post('/logout', auth, async (req, res) => {
-  res.json({ message: 'Logged out successfully' });
-});
+  res.json({ message: 'Logged out successfully' })
+})
 
 // Change own password
-// NEW format: UniqueID@GuardianPhone  (was Father/GuardianNumber@UniqueID)
 router.put('/change-password', auth, async (req, res) => {
   try {
     const { current_password, new_password } = req.body
@@ -92,4 +110,4 @@ router.put('/change-password', auth, async (req, res) => {
   }
 })
 
-module.exports = router;
+module.exports = router
