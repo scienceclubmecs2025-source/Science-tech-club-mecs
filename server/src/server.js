@@ -50,11 +50,11 @@ app.put('/api/users/profile', auth, async (req, res) => {
   try {
     const { full_name, bio, profile_photo_url, department, year } = req.body;
     const updateData = {};
-    if (full_name          !== undefined) updateData.full_name          = full_name;
-    if (bio                !== undefined) updateData.bio                = bio;
-    if (profile_photo_url  !== undefined) updateData.profile_photo_url  = profile_photo_url;
-    if (department         !== undefined) updateData.department         = department;
-    if (year               !== undefined) updateData.year               = year;
+    if (full_name         !== undefined) updateData.full_name         = full_name;
+    if (bio               !== undefined) updateData.bio               = bio;
+    if (profile_photo_url !== undefined) updateData.profile_photo_url = profile_photo_url;
+    if (department        !== undefined) updateData.department        = department;
+    if (year              !== undefined) updateData.year              = year;
     updateData.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
@@ -250,49 +250,170 @@ app.get('/api/projects/my-projects', auth, async (req, res) => {
   }
 });
 
+// ── Team Templates (inline) ──────────────────────────────────────
+const teamTemplatesRouter = express.Router()
+
+teamTemplatesRouter.get('/', auth, async (req, res) => {
+  try {
+    const { team } = req.query
+    let query = supabase
+      .from('team_templates')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (team) query = query.eq('team', team)
+    const { data, error } = await query
+    if (error) throw error
+    res.json(data || [])
+  } catch (err) {
+    console.error('GET /team-templates error:', err)
+    res.status(500).json({ message: 'Failed to fetch templates' })
+  }
+})
+
+teamTemplatesRouter.post('/', auth, async (req, res) => {
+  try {
+    const { title, link, team } = req.body
+    if (!title || !link || !team)
+      return res.status(400).json({ message: 'title, link and team are required' })
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ message: 'Admin only' })
+    const { data, error } = await supabase
+      .from('team_templates')
+      .insert({ title, link, team, created_by: req.user.id })
+      .select()
+      .single()
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (err) {
+    console.error('POST /team-templates error:', err)
+    res.status(500).json({ message: 'Failed to save template' })
+  }
+})
+
+teamTemplatesRouter.delete('/:id', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ message: 'Admin only' })
+    const { error } = await supabase
+      .from('team_templates')
+      .delete()
+      .eq('id', req.params.id)
+    if (error) throw error
+    res.json({ message: 'Deleted' })
+  } catch (err) {
+    console.error('DELETE /team-templates error:', err)
+    res.status(500).json({ message: 'Failed to delete' })
+  }
+})
+
+// ── Team Uploads (inline) ────────────────────────────────────────
+const teamUploadsRouter = express.Router()
+
+teamUploadsRouter.get('/', auth, async (req, res) => {
+  try {
+    const { team } = req.query
+    let query = supabase
+      .from('team_uploads')
+      .select('*, uploader:uploaded_by(id, full_name, username, committee_post)')
+      .order('created_at', { ascending: false })
+    if (team) query = query.eq('team', team)
+    const { data, error } = await query
+    if (error) throw error
+    res.json(data || [])
+  } catch (err) {
+    console.error('GET /team-uploads error:', err)
+    res.status(500).json({ message: 'Failed to fetch uploads' })
+  }
+})
+
+teamUploadsRouter.post('/', auth, async (req, res) => {
+  try {
+    const { title, description, link, category, team } = req.body
+    if (!title || !link || !team)
+      return res.status(400).json({ message: 'title, link and team are required' })
+    const allowedPosts = {
+      executive:      ['Executive Head', 'Executive Member'],
+      representative: ['Representative Head', 'Representative Member'],
+      design:         ['Designing Head', 'Designing Team'],
+    }
+    const { data: user } = await supabase
+      .from('users').select('committee_post, role').eq('id', req.user.id).single()
+    const allowed = allowedPosts[team] || []
+    if (user?.role !== 'admin' && !allowed.includes(user?.committee_post))
+      return res.status(403).json({ message: 'Not authorized for this team' })
+    const { data, error } = await supabase
+      .from('team_uploads')
+      .insert({ title, description, link, category: category || 'other', team, uploaded_by: req.user.id })
+      .select('*, uploader:uploaded_by(id, full_name, username, committee_post)')
+      .single()
+    if (error) throw error
+    res.status(201).json(data)
+  } catch (err) {
+    console.error('POST /team-uploads error:', err)
+    res.status(500).json({ message: 'Failed to create upload' })
+  }
+})
+
+teamUploadsRouter.delete('/:id', auth, async (req, res) => {
+  try {
+    const { data: upload } = await supabase
+      .from('team_uploads').select('uploaded_by').eq('id', req.params.id).single()
+    if (!upload) return res.status(404).json({ message: 'Upload not found' })
+    const { data: user } = await supabase
+      .from('users').select('role, committee_post').eq('id', req.user.id).single()
+    const isHead = ['Executive Head', 'Representative Head', 'Designing Head'].includes(user?.committee_post)
+    if (user?.role !== 'admin' && upload.uploaded_by !== req.user.id && !isHead)
+      return res.status(403).json({ message: 'Not authorized' })
+    const { error } = await supabase
+      .from('team_uploads').delete().eq('id', req.params.id)
+    if (error) throw error
+    res.json({ message: 'Deleted' })
+  } catch (err) {
+    console.error('DELETE /team-uploads error:', err)
+    res.status(500).json({ message: 'Failed to delete' })
+  }
+})
+
 // ── Route files ──────────────────────────────────────────────────
 let authRoutes, userRoutes, courseRoutes, projectRoutes, eventRoutes,
     announcementRoutes, messageRoutes, configRoutes, adminRoutes,
     quizRoutes, chatbotRoutes, reportRoutes, friendRoutes,
-    channelRoutes, requestsRouter,
-    teamUploadsRouter, teamTemplatesRouter   // ← new
+    channelRoutes, requestsRouter
 
-try { authRoutes          = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:',          e.message) }
-try { userRoutes          = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:',         e.message) }
-try { courseRoutes        = require('./routes/courses')       } catch(e) { console.error('❌ courses routes failed:',       e.message) }
-try { projectRoutes       = require('./routes/projects')      } catch(e) { console.error('❌ projects routes failed:',      e.message) }
-try { eventRoutes         = require('./routes/events')        } catch(e) { console.error('❌ events routes failed:',        e.message) }
-try { announcementRoutes  = require('./routes/announcements') } catch(e) { console.error('❌ announcements routes failed:', e.message) }
-try { messageRoutes       = require('./routes/messages')      } catch(e) { console.error('❌ messages routes failed:',      e.message) }
-try { configRoutes        = require('./routes/config')        } catch(e) { console.error('❌ config routes failed:',        e.message) }
-try { adminRoutes         = require('./routes/admin')         } catch(e) { console.error('❌ admin routes failed:',         e.message) }
-try { quizRoutes          = require('./routes/quizzes')       } catch(e) { console.error('❌ quizzes routes failed:',       e.message) }
-try { chatbotRoutes       = require('./routes/chatbot')       } catch(e) { console.error('❌ chatbot routes failed:',       e.message) }
-try { reportRoutes        = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:',       e.message) }
-try { friendRoutes        = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:',       e.message) }
-try { channelRoutes       = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:',      e.message) }
-try { requestsRouter      = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:',      e.message) }
-try { teamUploadsRouter   = require('./routes/teamUploads')   } catch(e) { console.error('❌ teamUploads routes failed:',   e.message) }
-try { teamTemplatesRouter = require('./routes/teamTemplates') } catch(e) { console.error('❌ teamTemplates routes failed:', e.message) }
+try { authRoutes         = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:',          e.message) }
+try { userRoutes         = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:',         e.message) }
+try { courseRoutes       = require('./routes/courses')       } catch(e) { console.error('❌ courses routes failed:',       e.message) }
+try { projectRoutes      = require('./routes/projects')      } catch(e) { console.error('❌ projects routes failed:',      e.message) }
+try { eventRoutes        = require('./routes/events')        } catch(e) { console.error('❌ events routes failed:',        e.message) }
+try { announcementRoutes = require('./routes/announcements') } catch(e) { console.error('❌ announcements routes failed:', e.message) }
+try { messageRoutes      = require('./routes/messages')      } catch(e) { console.error('❌ messages routes failed:',      e.message) }
+try { configRoutes       = require('./routes/config')        } catch(e) { console.error('❌ config routes failed:',        e.message) }
+try { adminRoutes        = require('./routes/admin')         } catch(e) { console.error('❌ admin routes failed:',         e.message) }
+try { quizRoutes         = require('./routes/quizzes')       } catch(e) { console.error('❌ quizzes routes failed:',       e.message) }
+try { chatbotRoutes      = require('./routes/chatbot')       } catch(e) { console.error('❌ chatbot routes failed:',       e.message) }
+try { reportRoutes       = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:',       e.message) }
+try { friendRoutes       = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:',       e.message) }
+try { channelRoutes      = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:',      e.message) }
+try { requestsRouter     = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:',      e.message) }
 
 // ── Mount routes ─────────────────────────────────────────────────
-if (authRoutes)          app.use('/api/auth',           authRoutes)
-if (userRoutes)          app.use('/api/users',          userRoutes)
-if (courseRoutes)        app.use('/api/courses',        courseRoutes)
-if (projectRoutes)       app.use('/api/projects',       projectRoutes)
-if (eventRoutes)         app.use('/api/events',         eventRoutes)
-if (announcementRoutes)  app.use('/api/announcements',  announcementRoutes)
-if (messageRoutes)       app.use('/api/messages',       messageRoutes)
-if (configRoutes)        app.use('/api/config',         configRoutes)
-if (adminRoutes)         app.use('/api/admin',          adminRoutes)
-if (quizRoutes)          app.use('/api/quizzes',        quizRoutes)
-if (chatbotRoutes)       app.use('/api/chatbot',        chatbotRoutes)
-if (reportRoutes)        app.use('/api/reports',        reportRoutes)
-if (friendRoutes)        app.use('/api/friends',        friendRoutes)
-if (channelRoutes)       app.use('/api/channels',       channelRoutes)
-if (requestsRouter)      app.use('/api/requests',       requestsRouter)
-if (teamUploadsRouter)   app.use('/api/team-uploads',   teamUploadsRouter)    // ← new
-if (teamTemplatesRouter) app.use('/api/team-templates', teamTemplatesRouter)  // ← new
+if (authRoutes)         app.use('/api/auth',           authRoutes)
+if (userRoutes)         app.use('/api/users',          userRoutes)
+if (courseRoutes)       app.use('/api/courses',        courseRoutes)
+if (projectRoutes)      app.use('/api/projects',       projectRoutes)
+if (eventRoutes)        app.use('/api/events',         eventRoutes)
+if (announcementRoutes) app.use('/api/announcements',  announcementRoutes)
+if (messageRoutes)      app.use('/api/messages',       messageRoutes)
+if (configRoutes)       app.use('/api/config',         configRoutes)
+if (adminRoutes)        app.use('/api/admin',          adminRoutes)
+if (quizRoutes)         app.use('/api/quizzes',        quizRoutes)
+if (chatbotRoutes)      app.use('/api/chatbot',        chatbotRoutes)
+if (reportRoutes)       app.use('/api/reports',        reportRoutes)
+if (friendRoutes)       app.use('/api/friends',        friendRoutes)
+if (channelRoutes)      app.use('/api/channels',       channelRoutes)
+if (requestsRouter)     app.use('/api/requests',       requestsRouter)
+app.use('/api/team-templates', teamTemplatesRouter)
+app.use('/api/team-uploads',   teamUploadsRouter)
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
@@ -308,29 +429,3 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
-// ── TEMPORARY DEBUG — remove after fix ──
-const routeMap = {
-  auth:          authRoutes,
-  users:         userRoutes,
-  courses:       courseRoutes,
-  projects:      projectRoutes,
-  events:        eventRoutes,
-  announcements: announcementRoutes,
-  messages:      messageRoutes,
-  config:        configRoutes,
-  admin:         adminRoutes,
-  quizzes:       quizRoutes,
-  chatbot:       chatbotRoutes,
-  reports:       reportRoutes,
-  friends:       friendRoutes,
-  channels:      channelRoutes,
-  requests:      requestsRouter,
-  teamUploads:   teamUploadsRouter,
-  teamTemplates: teamTemplatesRouter,
-}
-Object.entries(routeMap).forEach(([name, r]) => {
-  const ok = typeof r === 'function' || (r && typeof r.handle === 'function')
-  console.log(`${ok ? '✅' : '❌'} ${name}:`, typeof r)
-})
-
