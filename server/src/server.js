@@ -396,6 +396,32 @@ try { friendRoutes       = require('./routes/friends')       } catch(e) { consol
 try { channelRoutes      = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:',      e.message) }
 try { requestsRouter     = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:',      e.message) }
 
+// ── TEMP DEBUG — remove after identifying broken route ───────────
+const allRoutes = {
+  auth:          authRoutes,
+  users:         userRoutes,
+  courses:       courseRoutes,
+  projects:      projectRoutes,
+  events:        eventRoutes,
+  announcements: announcementRoutes,
+  messages:      messageRoutes,
+  config:        configRoutes,
+  admin:         adminRoutes,
+  quizzes:       quizRoutes,
+  chatbot:       chatbotRoutes,
+  reports:       reportRoutes,
+  friends:       friendRoutes,
+  channels:      channelRoutes,
+  requests:      requestsRouter,
+}
+Object.entries(allRoutes).forEach(([name, r]) => {
+  if (r === undefined) return
+  const ok = typeof r === 'function' || typeof r?.handle === 'function'
+  if (!ok) console.error(`❌ BROKEN ROUTE: ${name} →`, typeof r, Object.keys(r || {}))
+  else console.log(`✅ ${name}`)
+})
+// ── END DEBUG ────────────────────────────────────────────────────
+
 // ── Mount routes ─────────────────────────────────────────────────
 if (authRoutes)         app.use('/api/auth',           authRoutes)
 if (userRoutes)         app.use('/api/users',          userRoutes)
