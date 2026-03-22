@@ -1,5 +1,5 @@
-const express = require('express')
-const router  = express.Router()
+const express  = require('express')
+const router   = express.Router()
 const supabase = require('../config/supabase')
 const auth     = require('../middleware/auth')
 
@@ -9,28 +9,34 @@ const DEFAULT_CONFIG = {
   mecs_logo_url:     '',
   theme_mode:        'dark',
   primary_color:     '3b82f6',
-  watermark_opacity: 0.25
+  watermark_opacity: '0.25'
 }
 
-// GET /api/config — public, never throws 500
+// Helper: convert [{key, value}, ...] → { site_name: '...', ... }
+const rowsToObject = (rows) => {
+  const obj = { ...DEFAULT_CONFIG }
+  if (Array.isArray(rows)) {
+    rows.forEach(r => { if (r.key) obj[r.key] = r.value })
+  }
+  return obj
+}
+
+// GET /api/config — public, never returns 500
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('site_config')
-      .select('*')
-      .limit(1)
-      .maybeSingle()
+      .select('key, value')
 
-    // If table missing or any error, silently return defaults
     if (error) {
-      console.warn('Config fetch warning (returning defaults):', error.message)
+      console.warn('Config fetch warning:', error.message)
       return res.json(DEFAULT_CONFIG)
     }
 
-    res.json(data || DEFAULT_CONFIG)
+    res.json(rowsToObject(data))
   } catch (err) {
     console.error('Config fetch error:', err)
-    res.json(DEFAULT_CONFIG)   // always 200, never 500
+    res.json(DEFAULT_CONFIG)
   }
 })
 
@@ -40,44 +46,27 @@ router.put('/', auth, async (req, res) => {
     if (req.user.role !== 'admin')
       return res.status(403).json({ message: 'Access denied' })
 
-    const payload = {
+    const fields = {
       site_name:         req.body.site_name         ?? DEFAULT_CONFIG.site_name,
       logo_url:          req.body.logo_url          ?? '',
       mecs_logo_url:     req.body.mecs_logo_url     ?? '',
       theme_mode:        req.body.theme_mode         ?? 'dark',
       primary_color:     req.body.primary_color      ?? '3b82f6',
-      watermark_opacity: parseFloat(req.body.watermark_opacity) || 0.25,
-      updated_at:        new Date().toISOString()
+      watermark_opacity: String(req.body.watermark_opacity ?? '0.25')
     }
 
-    const { data: existing } = await supabase
-      .from('site_config')
-      .select('id')
-      .limit(1)
-      .maybeSingle()
+    const now = new Date().toISOString()
 
-    let result
-
-    if (existing) {
-      const { data, error } = await supabase
+    // Upsert each key individually
+    const upserts = Object.entries(fields).map(([key, value]) =>
+      supabase
         .from('site_config')
-        .update(payload)
-        .eq('id', existing.id)
-        .select()
-        .single()
-      if (error) throw error
-      result = data
-    } else {
-      const { data, error } = await supabase
-        .from('site_config')
-        .insert([payload])
-        .select()
-        .single()
-      if (error) throw error
-      result = data
-    }
+        .upsert({ key, value, updated_at: now }, { onConflict: 'key' })
+    )
 
-    res.json(result)
+    await Promise.all(upserts)
+
+    res.json(fields)
   } catch (err) {
     console.error('Config update error:', err)
     res.status(500).json({ message: 'Failed to update config', error: err.message })
