@@ -1,10 +1,10 @@
-require('dotenv').config(); // ✅ ABSOLUTE LINE 1
+require('dotenv').config();
 
-const express = require('express');
-const cors = require('cors');
-const app = express();
+const express  = require('express');
+const cors     = require('cors');
+const app      = express();
 const supabase = require('./config/supabase');
-const auth = require('./middleware/auth');
+const auth     = require('./middleware/auth');
 
 const corsOptions = {
   origin: [
@@ -17,14 +17,6 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200
 }
-
-// ── ADD these imports at the top with other route imports ──
-import teamUploadsRouter    from './src/routes/teamUploads.js'
-import teamTemplatesRouter  from './src/routes/teamTemplates.js'
-// ── ADD these with other app.use() route registrations ──
-app.use('/api/team-uploads',   teamUploadsRouter)
-app.use('/api/team-templates', teamTemplatesRouter)
-// config route already registered — just replace the file content above
 
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
@@ -58,11 +50,11 @@ app.put('/api/users/profile', auth, async (req, res) => {
   try {
     const { full_name, bio, profile_photo_url, department, year } = req.body;
     const updateData = {};
-    if (full_name !== undefined) updateData.full_name = full_name;
-    if (bio !== undefined) updateData.bio = bio;
-    if (profile_photo_url !== undefined) updateData.profile_photo_url = profile_photo_url;
-    if (department !== undefined) updateData.department = department;
-    if (year !== undefined) updateData.year = year;
+    if (full_name          !== undefined) updateData.full_name          = full_name;
+    if (bio                !== undefined) updateData.bio                = bio;
+    if (profile_photo_url  !== undefined) updateData.profile_photo_url  = profile_photo_url;
+    if (department         !== undefined) updateData.department         = department;
+    if (year               !== undefined) updateData.year               = year;
     updateData.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
@@ -169,10 +161,10 @@ app.post('/api/tasks', auth, async (req, res) => {
         title,
         description,
         assigned_to: assigned_to || req.user.id,
-        created_by: req.user.id,
+        created_by:  req.user.id,
         due_date,
         priority: priority || 'medium',
-        status: status || 'pending'
+        status:   status   || 'pending'
       }])
       .select(`
         *,
@@ -262,40 +254,45 @@ app.get('/api/projects/my-projects', auth, async (req, res) => {
 let authRoutes, userRoutes, courseRoutes, projectRoutes, eventRoutes,
     announcementRoutes, messageRoutes, configRoutes, adminRoutes,
     quizRoutes, chatbotRoutes, reportRoutes, friendRoutes,
-    channelRoutes, requestsRouter
+    channelRoutes, requestsRouter,
+    teamUploadsRouter, teamTemplatesRouter   // ← new
 
-try { authRoutes         = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:', e.message) }
-try { userRoutes         = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:', e.message) }
-try { courseRoutes       = require('./routes/courses')       } catch(e) { console.error('❌ courses routes failed:', e.message) }
-try { projectRoutes      = require('./routes/projects')      } catch(e) { console.error('❌ projects routes failed:', e.message) }
-try { eventRoutes        = require('./routes/events')        } catch(e) { console.error('❌ events routes failed:', e.message) }
-try { announcementRoutes = require('./routes/announcements') } catch(e) { console.error('❌ announcements routes failed:', e.message) }
-try { messageRoutes      = require('./routes/messages')      } catch(e) { console.error('❌ messages routes failed:', e.message) }
-try { configRoutes       = require('./routes/config')        } catch(e) { console.error('❌ config routes failed:', e.message) }
-try { adminRoutes        = require('./routes/admin')         } catch(e) { console.error('❌ admin routes failed:', e.message) }
-try { quizRoutes         = require('./routes/quizzes')       } catch(e) { console.error('❌ quizzes routes failed:', e.message) }
-try { chatbotRoutes      = require('./routes/chatbot')       } catch(e) { console.error('❌ chatbot routes failed:', e.message) }
-try { reportRoutes       = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:', e.message) }
-try { friendRoutes       = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:', e.message) }
-try { channelRoutes      = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:', e.message) }
-try { requestsRouter     = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:', e.message) }
+try { authRoutes          = require('./routes/auth')          } catch(e) { console.error('❌ auth routes failed:',          e.message) }
+try { userRoutes          = require('./routes/users')         } catch(e) { console.error('❌ users routes failed:',         e.message) }
+try { courseRoutes        = require('./routes/courses')       } catch(e) { console.error('❌ courses routes failed:',       e.message) }
+try { projectRoutes       = require('./routes/projects')      } catch(e) { console.error('❌ projects routes failed:',      e.message) }
+try { eventRoutes         = require('./routes/events')        } catch(e) { console.error('❌ events routes failed:',        e.message) }
+try { announcementRoutes  = require('./routes/announcements') } catch(e) { console.error('❌ announcements routes failed:', e.message) }
+try { messageRoutes       = require('./routes/messages')      } catch(e) { console.error('❌ messages routes failed:',      e.message) }
+try { configRoutes        = require('./routes/config')        } catch(e) { console.error('❌ config routes failed:',        e.message) }
+try { adminRoutes         = require('./routes/admin')         } catch(e) { console.error('❌ admin routes failed:',         e.message) }
+try { quizRoutes          = require('./routes/quizzes')       } catch(e) { console.error('❌ quizzes routes failed:',       e.message) }
+try { chatbotRoutes       = require('./routes/chatbot')       } catch(e) { console.error('❌ chatbot routes failed:',       e.message) }
+try { reportRoutes        = require('./routes/reports')       } catch(e) { console.error('❌ reports routes failed:',       e.message) }
+try { friendRoutes        = require('./routes/friends')       } catch(e) { console.error('❌ friends routes failed:',       e.message) }
+try { channelRoutes       = require('./routes/channels')      } catch(e) { console.error('❌ channels routes failed:',      e.message) }
+try { requestsRouter      = require('./routes/requests')      } catch(e) { console.error('❌ requests routes failed:',      e.message) }
+try { teamUploadsRouter   = require('./routes/teamUploads')   } catch(e) { console.error('❌ teamUploads routes failed:',   e.message) }
+try { teamTemplatesRouter = require('./routes/teamTemplates') } catch(e) { console.error('❌ teamTemplates routes failed:', e.message) }
 
 // ── Mount routes ─────────────────────────────────────────────────
-if (authRoutes)         app.use('/api/auth',          authRoutes)
-if (userRoutes)         app.use('/api/users',         userRoutes)
-if (courseRoutes)       app.use('/api/courses',       courseRoutes)
-if (projectRoutes)      app.use('/api/projects',      projectRoutes)
-if (eventRoutes)        app.use('/api/events',        eventRoutes)
-if (announcementRoutes) app.use('/api/announcements', announcementRoutes)
-if (messageRoutes)      app.use('/api/messages',      messageRoutes)
-if (configRoutes)       app.use('/api/config',        configRoutes)
-if (adminRoutes)        app.use('/api/admin',         adminRoutes)
-if (quizRoutes)         app.use('/api/quizzes',       quizRoutes)
-if (chatbotRoutes)      app.use('/api/chatbot',       chatbotRoutes)
-if (reportRoutes)       app.use('/api/reports',       reportRoutes)
-if (friendRoutes)       app.use('/api/friends',       friendRoutes)
-if (channelRoutes)      app.use('/api/channels',      channelRoutes)
-if (requestsRouter)     app.use('/api/requests',      requestsRouter)
+if (authRoutes)          app.use('/api/auth',           authRoutes)
+if (userRoutes)          app.use('/api/users',          userRoutes)
+if (courseRoutes)        app.use('/api/courses',        courseRoutes)
+if (projectRoutes)       app.use('/api/projects',       projectRoutes)
+if (eventRoutes)         app.use('/api/events',         eventRoutes)
+if (announcementRoutes)  app.use('/api/announcements',  announcementRoutes)
+if (messageRoutes)       app.use('/api/messages',       messageRoutes)
+if (configRoutes)        app.use('/api/config',         configRoutes)
+if (adminRoutes)         app.use('/api/admin',          adminRoutes)
+if (quizRoutes)          app.use('/api/quizzes',        quizRoutes)
+if (chatbotRoutes)       app.use('/api/chatbot',        chatbotRoutes)
+if (reportRoutes)        app.use('/api/reports',        reportRoutes)
+if (friendRoutes)        app.use('/api/friends',        friendRoutes)
+if (channelRoutes)       app.use('/api/channels',       channelRoutes)
+if (requestsRouter)      app.use('/api/requests',       requestsRouter)
+if (teamUploadsRouter)   app.use('/api/team-uploads',   teamUploadsRouter)    // ← new
+if (teamTemplatesRouter) app.use('/api/team-templates', teamTemplatesRouter)  // ← new
 
 // ── 404 handler ──────────────────────────────────────────────────
 app.use((req, res) => {
