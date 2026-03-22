@@ -1,7 +1,8 @@
-const express  = require('express')
-const router   = express.Router()
-const supabase = require('../config/supabase')
-const auth     = require('../middleware/auth')
+import express from 'express'
+import supabase from '../config/supabase.js'
+import auth from '../middleware/auth.js'
+
+const router = express.Router()
 
 const DEFAULT_CONFIG = {
   site_name:         'Science & Tech Club',
@@ -10,7 +11,6 @@ const DEFAULT_CONFIG = {
   theme_mode:        'dark',
   primary_color:     '3b82f6',
   watermark_opacity: '0.25',
-  // ── new fields ──
   canva_link:        '',
   instagram:         '',
   youtube:           '',
@@ -20,7 +20,6 @@ const DEFAULT_CONFIG = {
   whatsapp:          ''
 }
 
-// Helper: convert [{key, value}, ...] → { site_name: '...', ... }
 const rowsToObject = (rows) => {
   const obj = { ...DEFAULT_CONFIG }
   if (Array.isArray(rows)) {
@@ -29,7 +28,7 @@ const rowsToObject = (rows) => {
   return obj
 }
 
-// GET /api/config — public, never returns 500
+// GET /api/config — public
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -61,7 +60,6 @@ router.put('/', auth, async (req, res) => {
       theme_mode:        req.body.theme_mode        ?? 'dark',
       primary_color:     req.body.primary_color     ?? '3b82f6',
       watermark_opacity: String(req.body.watermark_opacity ?? '0.25'),
-      // ── new fields ──
       canva_link:        req.body.canva_link        ?? '',
       instagram:         req.body.instagram         ?? '',
       youtube:           req.body.youtube           ?? '',
@@ -73,7 +71,6 @@ router.put('/', auth, async (req, res) => {
 
     const now = new Date().toISOString()
 
-    // Upsert each key individually (same pattern as original)
     const upserts = Object.entries(fields).map(([key, value]) =>
       supabase
         .from('site_config')
@@ -81,7 +78,6 @@ router.put('/', auth, async (req, res) => {
     )
 
     await Promise.all(upserts)
-
     res.json(fields)
   } catch (err) {
     console.error('Config update error:', err)
@@ -89,4 +85,4 @@ router.put('/', auth, async (req, res) => {
   }
 })
 
-module.exports = router
+export default router
