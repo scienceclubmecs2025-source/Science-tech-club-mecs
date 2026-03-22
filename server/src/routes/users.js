@@ -1,9 +1,9 @@
-const express = require('express')
-const router = express.Router()
+const express  = require('express')
+const router   = express.Router()
 const supabase = require('../config/supabase')
-const auth = require('../middleware/auth')
-const bcrypt = require('bcryptjs')
-const multer = require('multer')
+const auth     = require('../middleware/auth')
+const bcrypt   = require('bcryptjs')
+const multer   = require('multer')
 const {
   sendProfileCreatedMail,
   sendProfileUpdatedMail,
@@ -19,14 +19,15 @@ const upload = multer({
   }
 })
 
-// GET all users (excluding admin)
+// ✅ GET all users — fixed 100 limit with .range(0, 999)
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, full_name, email, role, department, year, profile_photo_url, bio, is_committee, committee_post')
+      .select('id, username, full_name, email, role, department, year, profile_photo_url, bio, is_committee, committee_post, roll_number, unique_id, phone, address, field_of_interest, guardian_phone')
       .neq('role', 'admin')
       .order('created_at', { ascending: false })
+      .range(0, 999)   // ✅ fetch up to 1000 users instead of default 100
     if (error) throw error
     res.json(data || [])
   } catch (error) {
@@ -39,7 +40,7 @@ router.get('/profile', auth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, full_name, email, role, department, year, profile_photo_url, bio, is_committee, committee_post, roll_number, unique_id, employment_id, guardian_phone, created_at')
+      .select('id, username, full_name, email, role, department, year, profile_photo_url, bio, is_committee, committee_post, roll_number, unique_id, employment_id, guardian_phone, phone, address, field_of_interest, created_at')
       .eq('id', req.user.id)
       .single()
     if (error) throw error
@@ -54,11 +55,11 @@ router.put('/profile', auth, async (req, res) => {
   try {
     const { full_name, bio, profile_photo_url, department, year } = req.body
     const updateData = {}
-    if (full_name !== undefined)        updateData.full_name        = full_name
-    if (bio !== undefined)              updateData.bio              = bio
+    if (full_name !== undefined)         updateData.full_name         = full_name
+    if (bio !== undefined)               updateData.bio               = bio
     if (profile_photo_url !== undefined) updateData.profile_photo_url = profile_photo_url
-    if (department !== undefined)       updateData.department       = department
-    if (year !== undefined)             updateData.year             = year ? parseInt(year) : null
+    if (department !== undefined)        updateData.department        = department
+    if (year !== undefined)              updateData.year              = year ? parseInt(year) : null
     updateData.updated_at = new Date().toISOString()
 
     const { data, error } = await supabase
@@ -87,23 +88,15 @@ router.post('/profile/photo', auth, upload.single('photo'), async (req, res) => 
     const filePath = `${req.user.id}/profile.${ext}`
 
     const { error: uploadError } = await supabase.storage
-      .from('avatars')                           // ← fixed from 'profile-photos'
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: true
-      })
+      .from('avatars')
+      .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
     if (uploadError) throw uploadError
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('avatars')                           // ← fixed from 'profile-photos'
-      .getPublicUrl(filePath)
-
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
     const finalUrl = `${publicUrl}?t=${Date.now()}`
 
     const { error: dbError } = await supabase
-      .from('users')
-      .update({ profile_photo_url: finalUrl })
-      .eq('id', req.user.id)
+      .from('users').update({ profile_photo_url: finalUrl }).eq('id', req.user.id)
     if (dbError) throw dbError
 
     res.json({ profile_photo_url: finalUrl })
@@ -137,7 +130,8 @@ router.put('/:id', auth, async (req, res) => {
 
     const allowedFields = [
       'full_name', 'bio', 'profile_photo_url', 'department', 'year',
-      'committee_post', 'is_committee', 'guardian_phone', 'roll_number', 'unique_id'
+      'committee_post', 'is_committee', 'guardian_phone', 'roll_number',
+      'unique_id', 'role'   // ✅ role added so admin/head can update it
     ]
     const updateData = {}
     allowedFields.forEach(f => {
@@ -179,30 +173,22 @@ router.post('/', auth, async (req, res) => {
 
     if (!username || !email) return res.status(400).json({ message: 'Username and email required' })
 
-    const clubId      = unique_id || roll_number || username
-    const gPhone      = guardian_phone || '0000000000'
-    const rawPassword = `${clubId}@${gPhone}`
+    const clubId         = unique_id || roll_number || username
+    const gPhone         = guardian_phone || '0000000000'
+    const rawPassword    = `${clubId}@${gPhone}`
     const hashedPassword = await bcrypt.hash(rawPassword, 10)
 
     const { data: newUser, error } = await supabase
       .from('users')
       .insert([{
-        username,
-        full_name,
-        email,
-        password:      hashedPassword,
-        role,
-        department,
-        year:          year ? parseInt(year) : null,
-        roll_number,
-        unique_id,
-        guardian_phone,
-        is_committee,
-        committee_post
+        username, full_name, email,
+        password: hashedPassword,
+        role, department,
+        year:           year ? parseInt(year) : null,
+        roll_number, unique_id, guardian_phone,
+        is_committee, committee_post
       }])
-      .select()
-      .single()
-
+      .select().single()
     if (error) throw error
 
     if (is_committee) await autoFriendCommitteeMembers(newUser.id)
