@@ -1,20 +1,13 @@
-import express from 'express'
-import supabase from '../config/supabase.js'
-import auth from '../middleware/auth.js'
+const express  = require('express')
+const router   = express.Router()
+const supabase = require('../config/supabase')
+const auth     = require('../middleware/auth')
 
-const router = express.Router()
-
-// GET /api/team-templates?team=executive|representative|design
 router.get('/', auth, async (req, res) => {
   try {
     const { team } = req.query
-    let query = supabase
-      .from('team_templates')
-      .select('*')
-      .order('created_at', { ascending: false })
-
+    let query = supabase.from('team_templates').select('*').order('created_at', { ascending: false })
     if (team) query = query.eq('team', team)
-
     const { data, error } = await query
     if (error) throw error
     res.json(data || [])
@@ -24,26 +17,17 @@ router.get('/', auth, async (req, res) => {
   }
 })
 
-// POST /api/team-templates  (admin only)
 router.post('/', auth, async (req, res) => {
   try {
     const { title, link, team } = req.body
-
     if (!title || !link || !team)
       return res.status(400).json({ message: 'title, link and team are required' })
-
-    const { data: user } = await supabase
-      .from('users').select('role').eq('id', req.user.id).single()
-
-    if (user?.role !== 'admin')
+    if (req.user.role !== 'admin')
       return res.status(403).json({ message: 'Admin only' })
-
     const { data, error } = await supabase
       .from('team_templates')
       .insert({ title, link, team, created_by: req.user.id })
-      .select()
-      .single()
-
+      .select().single()
     if (error) throw error
     res.status(201).json(data)
   } catch (err) {
@@ -52,18 +36,11 @@ router.post('/', auth, async (req, res) => {
   }
 })
 
-// DELETE /api/team-templates/:id  (admin only)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const { data: user } = await supabase
-      .from('users').select('role').eq('id', req.user.id).single()
-
-    if (user?.role !== 'admin')
+    if (req.user.role !== 'admin')
       return res.status(403).json({ message: 'Admin only' })
-
-    const { error } = await supabase
-      .from('team_templates').delete().eq('id', req.params.id)
-
+    const { error } = await supabase.from('team_templates').delete().eq('id', req.params.id)
     if (error) throw error
     res.json({ message: 'Deleted' })
   } catch (err) {
@@ -72,4 +49,4 @@ router.delete('/:id', auth, async (req, res) => {
   }
 })
 
-export default router
+module.exports = router
