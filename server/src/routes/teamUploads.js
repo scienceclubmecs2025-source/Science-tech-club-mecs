@@ -1,25 +1,16 @@
-import express from 'express'
-import supabase from '../config/supabase.js'
-import auth from '../middleware/auth.js'
+const express  = require('express')
+const router   = express.Router()
+const supabase = require('../config/supabase')
+const auth     = require('../middleware/auth')
 
-const router = express.Router()
-
-// GET /api/team-uploads?team=executive|representative|design
 router.get('/', auth, async (req, res) => {
   try {
     const { team } = req.query
     let query = supabase
       .from('team_uploads')
-      .select(`
-        *,
-        uploader:uploaded_by (
-          id, full_name, username, committee_post
-        )
-      `)
+      .select(`*, uploader:uploaded_by(id, full_name, username, committee_post)`)
       .order('created_at', { ascending: false })
-
     if (team) query = query.eq('team', team)
-
     const { data, error } = await query
     if (error) throw error
     res.json(data || [])
@@ -29,12 +20,10 @@ router.get('/', auth, async (req, res) => {
   }
 })
 
-// POST /api/team-uploads
 router.post('/', auth, async (req, res) => {
   try {
     const { title, description, link, category, team } = req.body
     const userId = req.user.id
-
     if (!title || !link || !team)
       return res.status(400).json({ message: 'title, link and team are required' })
 
@@ -43,7 +32,6 @@ router.post('/', auth, async (req, res) => {
       representative: ['Representative Head', 'Representative Member'],
       design:         ['Designing Head', 'Designing Team'],
     }
-
     const { data: user } = await supabase
       .from('users').select('committee_post, role').eq('id', userId).single()
 
@@ -56,7 +44,6 @@ router.post('/', auth, async (req, res) => {
       .insert({ title, description, link, category: category || 'other', team, uploaded_by: userId })
       .select(`*, uploader:uploaded_by(id, full_name, username, committee_post)`)
       .single()
-
     if (error) throw error
     res.status(201).json(data)
   } catch (err) {
@@ -65,20 +52,16 @@ router.post('/', auth, async (req, res) => {
   }
 })
 
-// DELETE /api/team-uploads/:id
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const { id } = req.params
-    const userId = req.user.id
-
+    const { id }     = req.params
+    const userId     = req.user.id
     const { data: upload } = await supabase
       .from('team_uploads').select('uploaded_by').eq('id', id).single()
-
     if (!upload) return res.status(404).json({ message: 'Upload not found' })
 
     const { data: user } = await supabase
       .from('users').select('role, committee_post').eq('id', userId).single()
-
     const isHead = ['Executive Head', 'Representative Head', 'Designing Head'].includes(user?.committee_post)
 
     if (user?.role !== 'admin' && upload.uploaded_by !== userId && !isHead)
@@ -93,4 +76,4 @@ router.delete('/:id', auth, async (req, res) => {
   }
 })
 
-export default router
+module.exports = router
