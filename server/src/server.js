@@ -308,3 +308,29 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// ── TEMPORARY DEBUG — remove after fix ──
+const routeMap = {
+  auth:          authRoutes,
+  users:         userRoutes,
+  courses:       courseRoutes,
+  projects:      projectRoutes,
+  events:        eventRoutes,
+  announcements: announcementRoutes,
+  messages:      messageRoutes,
+  config:        configRoutes,
+  admin:         adminRoutes,
+  quizzes:       quizRoutes,
+  chatbot:       chatbotRoutes,
+  reports:       reportRoutes,
+  friends:       friendRoutes,
+  channels:      channelRoutes,
+  requests:      requestsRouter,
+  teamUploads:   teamUploadsRouter,
+  teamTemplates: teamTemplatesRouter,
+}
+Object.entries(routeMap).forEach(([name, r]) => {
+  const ok = typeof r === 'function' || (r && typeof r.handle === 'function')
+  console.log(`${ok ? '✅' : '❌'} ${name}:`, typeof r)
+})
+
