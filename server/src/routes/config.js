@@ -9,7 +9,15 @@ const DEFAULT_CONFIG = {
   mecs_logo_url:     '',
   theme_mode:        'dark',
   primary_color:     '3b82f6',
-  watermark_opacity: '0.25'
+  watermark_opacity: '0.25',
+  // ── new fields ──
+  canva_link:        '',
+  instagram:         '',
+  youtube:           '',
+  linkedin:          '',
+  twitter:           '',
+  website:           '',
+  whatsapp:          ''
 }
 
 // Helper: convert [{key, value}, ...] → { site_name: '...', ... }
@@ -50,14 +58,22 @@ router.put('/', auth, async (req, res) => {
       site_name:         req.body.site_name         ?? DEFAULT_CONFIG.site_name,
       logo_url:          req.body.logo_url          ?? '',
       mecs_logo_url:     req.body.mecs_logo_url     ?? '',
-      theme_mode:        req.body.theme_mode         ?? 'dark',
-      primary_color:     req.body.primary_color      ?? '3b82f6',
-      watermark_opacity: String(req.body.watermark_opacity ?? '0.25')
+      theme_mode:        req.body.theme_mode        ?? 'dark',
+      primary_color:     req.body.primary_color     ?? '3b82f6',
+      watermark_opacity: String(req.body.watermark_opacity ?? '0.25'),
+      // ── new fields ──
+      canva_link:        req.body.canva_link        ?? '',
+      instagram:         req.body.instagram         ?? '',
+      youtube:           req.body.youtube           ?? '',
+      linkedin:          req.body.linkedin          ?? '',
+      twitter:           req.body.twitter           ?? '',
+      website:           req.body.website           ?? '',
+      whatsapp:          req.body.whatsapp          ?? ''
     }
 
     const now = new Date().toISOString()
 
-    // Upsert each key individually
+    // Upsert each key individually (same pattern as original)
     const upserts = Object.entries(fields).map(([key, value]) =>
       supabase
         .from('site_config')
