@@ -34,6 +34,7 @@ import DeptViceHeadDashboard from './pages/DeptViceHeadDashboard'
 import DeveloperDashboard from './pages/DeveloperDashboard'
 import ExecutiveDashboard from './pages/ExecutiveDashboard'
 import RepresentativeDashboard from './pages/RepresentativeDashboard'
+import DesignDashboard from './pages/DesignDashboard'
 import RequestProfilePage from './pages/RequestProfilePage'
 import RequestPasswordPage from './pages/RequestPasswordPage'
 
@@ -42,26 +43,35 @@ const SITE_NAME = 'Science & Tech Club'
 
 // ── Page title map ───────────────────────────────────────────────
 const PAGE_TITLES = {
-  '/':                  'Home',
-  '/login':             'Login',
-  '/dashboard':         'Dashboard',
-  '/admin':             'Admin Panel',
-  '/faculty':           'Faculty Dashboard',
-  '/committee':         'Committee Dashboard',
-  '/committee/team':    'Team View',
-  '/developer':         'Developer Dashboard',
-  '/profile':           'My Profile',
-  '/courses':           'Courses',
-  '/projects':          'Projects',
-  '/projects/create':   'Create Project',
-  '/my-projects':       'My Projects',
-  '/quizzes':           'Quizzes',
-  '/events':            'Events',
-  '/events/create':     'Create Event',
-  '/tasks':             'Tasks',
-  '/messages':          'Messages',
-  '/request-profile':   'Request Profile',
-  '/request-password':  'Request Password',
+  '/':                        'Home',
+  '/login':                   'Login',
+  '/dashboard':               'Dashboard',
+  '/admin':                   'Admin Panel',
+  '/faculty':                 'Faculty Dashboard',
+  '/committee':               'Committee Dashboard',
+  '/committee/team':          'Team View',
+  '/developer':               'Developer Dashboard',
+  '/profile':                 'My Profile',
+  '/courses':                 'Courses',
+  '/projects':                'Projects',
+  '/projects/create':         'Create Project',
+  '/my-projects':             'My Projects',
+  '/quizzes':                 'Quizzes',
+  '/events':                  'Events',
+  '/events/create':           'Create Event',
+  '/tasks':                   'Tasks',
+  '/messages':                'Messages',
+  '/request-profile':         'Request Profile',
+  '/request-password':        'Request Password',
+  '/executive-dashboard':     'Executive Dashboard',
+  '/representative-dashboard':'Representative Dashboard',
+  '/design-dashboard':        'Design Dashboard',
+  '/chair-dashboard':         'Chair Dashboard',
+  '/secretary-dashboard':     'Secretary Dashboard',
+  '/vice-chair-dashboard':    'Vice Chair Dashboard',
+  '/vice-secretary-dashboard':'Vice Secretary Dashboard',
+  '/dept-head-dashboard':     'Department Head Dashboard',
+  '/dept-vice-head-dashboard':'Department Vice Head Dashboard',
 }
 
 // ── Sets favicon dynamically ─────────────────────────────────────
@@ -78,19 +88,19 @@ function setFavicon(url) {
 // ── Hook: update title + favicon on every route change ──────────
 function usePageMeta(location) {
   useEffect(() => {
-    // Set favicon
     setFavicon(CLUB_LOGO)
-
-    // Set page title
     const matched = Object.keys(PAGE_TITLES).find(path =>
       location.pathname === path ||
       (path !== '/' && location.pathname.startsWith(path))
     )
     const pageLabel = matched ? PAGE_TITLES[matched] : null
-    document.title = pageLabel
-      ? `${pageLabel} | ${SITE_NAME}`
-      : SITE_NAME
+    document.title = pageLabel ? `${pageLabel} | ${SITE_NAME}` : SITE_NAME
   }, [location.pathname])
+}
+
+// ── Helper: check if user's committee_post matches a set ─────────
+function hasPost(user, ...posts) {
+  return posts.includes(user?.committee_post)
 }
 
 function AppContent() {
@@ -98,14 +108,11 @@ function AppContent() {
     try {
       const stored = localStorage.getItem('user')
       return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
+    } catch { return null }
   })
   const [loading, setLoading] = useState(true)
   const location = useLocation()
 
-  // Update favicon + title on every page change
   usePageMeta(location)
 
   useEffect(() => {
@@ -123,9 +130,7 @@ function AppContent() {
             setUser(JSON.parse(storedUser))
           }
         })
-        .catch(() => {
-          setUser(JSON.parse(storedUser))
-        })
+        .catch(() => { setUser(JSON.parse(storedUser)) })
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -136,24 +141,12 @@ function AppContent() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex flex-col items-center gap-5">
-
-          {/* Club logo with spinning ring */}
           <div className="relative w-20 h-20">
-            {/* Spinning border ring */}
             <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-            {/* Club logo in center */}
-            <img
-              src={CLUB_LOGO}
-              alt="Science & Tech Club"
-              className="w-full h-full rounded-full object-cover p-1"
-            />
+            <img src={CLUB_LOGO} alt="Science & Tech Club" className="w-full h-full rounded-full object-cover p-1" />
           </div>
-
-          <div className="text-white text-base font-medium tracking-wide">
-            {SITE_NAME}
-          </div>
+          <div className="text-white text-base font-medium tracking-wide">{SITE_NAME}</div>
           <div className="text-gray-500 text-sm">Loading...</div>
-
         </div>
       </div>
     )
@@ -161,16 +154,22 @@ function AppContent() {
 
   const hideNavbar = location.pathname === '/' || location.pathname === '/login'
 
+  // ── Guard helpers ────────────────────────────────────────────
+  const PrivateRoute   = ({ element }) => user ? element : <Navigate to="/login" replace />
+  const CommitteeRoute = ({ element }) => user?.is_committee ? element : <Navigate to="/dashboard" replace />
+
   return (
     <div className="min-h-screen bg-black">
       {user && !hideNavbar && <Navbar user={user} setUser={setUser} />}
 
       <Routes>
-        {/* Public */}
+        {/* ── Public ────────────────────────────────────────── */}
         <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Home />} />
         <Route path="/login" element={!user ? <Login setUser={setUser} /> : <Navigate to="/dashboard" />} />
+        <Route path="/request-profile"  element={<RequestProfilePage />} />
+        <Route path="/request-password" element={<RequestPasswordPage />} />
 
-        {/* Dashboard router */}
+        {/* ── Dashboard router ──────────────────────────────── */}
         <Route path="/dashboard" element={
           user ? (
             user.role === 'admin'   ? <Navigate to="/admin"   replace /> :
@@ -180,42 +179,105 @@ function AppContent() {
           ) : <Navigate to="/login" replace />
         } />
 
-        {/* Admin */}
-        <Route path="/admin" element={user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/dashboard" replace />} />
+        {/* ── Admin ─────────────────────────────────────────── */}
+        <Route path="/admin" element={
+          user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/dashboard" replace />
+        } />
 
-        {/* Faculty */}
-        <Route path="/faculty" element={user?.role === 'faculty' ? <FacultyDashboard /> : <Navigate to="/dashboard" replace />} />
+        {/* ── Faculty ───────────────────────────────────────── */}
+        <Route path="/faculty" element={
+          user?.role === 'faculty' ? <FacultyDashboard /> : <Navigate to="/dashboard" replace />
+        } />
 
-        {/* Committee */}
-        <Route path="/committee"      element={user?.is_committee ? <CommitteeDashboard /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/committee/team" element={user?.is_committee ? <TeamViewPage />       : <Navigate to="/dashboard" replace />} />
+        {/* ── Committee shared ──────────────────────────────── */}
+        <Route path="/committee"      element={<CommitteeRoute element={<CommitteeDashboard />} />} />
+        <Route path="/committee/team" element={<CommitteeRoute element={<TeamViewPage />} />} />
 
-        {/* Developer */}
+        {/* ── Role-specific committee dashboards ────────────── */}
+        <Route path="/chair-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Chair') ? <ChairDashboard /> : <Navigate to="/dashboard" replace />
+          } />
+        } />
+        <Route path="/vice-chair-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Vice Chair') ? <ViceChairDashboard /> : <Navigate to="/dashboard" replace />
+          } />
+        } />
+        <Route path="/secretary-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Secretary') ? <SecretaryDashboard /> : <Navigate to="/dashboard" replace />
+          } />
+        } />
+        <Route path="/vice-secretary-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Vice Secretary') ? <ViceSecretaryDashboard /> : <Navigate to="/dashboard" replace />
+          } />
+        } />
+        <Route path="/dept-head-dashboard" element={
+          <CommitteeRoute element={
+            user?.committee_post?.includes('Head') && !user?.committee_post?.includes('Vice')
+              ? <DeptHeadDashboard />
+              : <Navigate to="/dashboard" replace />
+          } />
+        } />
+        <Route path="/dept-vice-head-dashboard" element={
+          <CommitteeRoute element={
+            user?.committee_post?.includes('Vice Head')
+              ? <DeptViceHeadDashboard />
+              : <Navigate to="/dashboard" replace />
+          } />
+        } />
+
+        {/* ── Executive ─────────────────────────────────────── */}
+        <Route path="/executive-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Executive Head', 'Executive Member')
+              ? <ExecutiveDashboard />
+              : <Navigate to="/dashboard" replace />
+          } />
+        } />
+
+        {/* ── Representative ────────────────────────────────── */}
+        <Route path="/representative-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Representative Head', 'Representative Member')
+              ? <RepresentativeDashboard />
+              : <Navigate to="/dashboard" replace />
+          } />
+        } />
+
+        {/* ── Design ────────────────────────────────────────── */}
+        <Route path="/design-dashboard" element={
+          <CommitteeRoute element={
+            hasPost(user, 'Designing Head', 'Designing Team')
+              ? <DesignDashboard />
+              : <Navigate to="/dashboard" replace />
+          } />
+        } />
+
+        {/* ── Developer ─────────────────────────────────────── */}
         <Route path="/developer" element={
-          user?.committee_role === 'developer' || user?.committee_post === 'Developer'
+          hasPost(user, 'Developer') || user?.committee_role === 'developer'
             ? <DeveloperDashboard />
             : <Navigate to="/dashboard" replace />
         } />
 
-        {/* Protected */}
-        <Route path="/profile"             element={user ? <ProfilePage />      : <Navigate to="/login" replace />} />
-        <Route path="/courses"             element={user ? <CoursesPage />       : <Navigate to="/login" replace />} />
-        <Route path="/projects"            element={user ? <ProjectsPage />      : <Navigate to="/login" replace />} />
-        <Route path="/projects/create"     element={user ? <CreateProjectPage /> : <Navigate to="/login" replace />} />
-        <Route path="/my-projects"         element={user ? <MyProjectsPage />    : <Navigate to="/login" replace />} />
-        <Route path="/quizzes"             element={user ? <QuizzesPage />       : <Navigate to="/login" replace />} />
-        <Route path="/quizzes/:id"         element={user ? <TakeQuizPage />      : <Navigate to="/login" replace />} />
-        <Route path="/events"              element={user ? <EventsPage />        : <Navigate to="/login" replace />} />
-        <Route path="/events/create"       element={user ? <CreateEventPage />   : <Navigate to="/login" replace />} />
-        <Route path="/tasks"               element={user ? <TasksPage />         : <Navigate to="/login" replace />} />
-        <Route path="/messages"            element={user ? <MessagesPage />      : <Navigate to="/login" replace />} />
-        <Route path="/messages/:channelId" element={user ? <MessagesPage />      : <Navigate to="/login" replace />} />
+        {/* ── General protected ─────────────────────────────── */}
+        <Route path="/profile"             element={<PrivateRoute element={<ProfilePage />} />} />
+        <Route path="/courses"             element={<PrivateRoute element={<CoursesPage />} />} />
+        <Route path="/projects"            element={<PrivateRoute element={<ProjectsPage />} />} />
+        <Route path="/projects/create"     element={<PrivateRoute element={<CreateProjectPage />} />} />
+        <Route path="/my-projects"         element={<PrivateRoute element={<MyProjectsPage />} />} />
+        <Route path="/quizzes"             element={<PrivateRoute element={<QuizzesPage />} />} />
+        <Route path="/quizzes/:id"         element={<PrivateRoute element={<TakeQuizPage />} />} />
+        <Route path="/events"              element={<PrivateRoute element={<EventsPage />} />} />
+        <Route path="/events/create"       element={<PrivateRoute element={<CreateEventPage />} />} />
+        <Route path="/tasks"               element={<PrivateRoute element={<TasksPage />} />} />
+        <Route path="/messages"            element={<PrivateRoute element={<MessagesPage />} />} />
+        <Route path="/messages/:channelId" element={<PrivateRoute element={<MessagesPage />} />} />
 
-        {/* Public request pages */}
-        <Route path="/request-profile"  element={<RequestProfilePage />} />
-        <Route path="/request-password" element={<RequestPasswordPage />} />
-
-        {/* Catch all */}
+        {/* ── Catch all ─────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
