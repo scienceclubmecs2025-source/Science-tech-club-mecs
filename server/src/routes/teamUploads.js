@@ -1,11 +1,11 @@
 import express from 'express'
-import { supabase } from '../db.js'
-import { authenticateToken } from '../middleware/auth.js'
+import supabase from '../config/supabase.js'
+import auth from '../middleware/auth.js'
 
 const router = express.Router()
 
-// ── GET /team-uploads?team=executive|representative|design  (or all) ──
-router.get('/', authenticateToken, async (req, res) => {
+// GET /api/team-uploads?team=executive|representative|design
+router.get('/', auth, async (req, res) => {
   try {
     const { team } = req.query
     let query = supabase
@@ -29,33 +29,31 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 })
 
-// ── POST /team-uploads ──
-router.post('/', authenticateToken, async (req, res) => {
+// POST /api/team-uploads
+router.post('/', auth, async (req, res) => {
   try {
     const { title, description, link, category, team } = req.body
     const userId = req.user.id
 
-    if (!title || !link || !team) {
+    if (!title || !link || !team)
       return res.status(400).json({ message: 'title, link and team are required' })
-    }
 
-    // Validate the user belongs to the team they're posting to
     const allowedPosts = {
       executive:      ['Executive Head', 'Executive Member'],
       representative: ['Representative Head', 'Representative Member'],
       design:         ['Designing Head', 'Designing Team'],
     }
+
     const { data: user } = await supabase
       .from('users').select('committee_post, role').eq('id', userId).single()
 
     const allowed = allowedPosts[team] || []
-    if (user?.role !== 'admin' && !allowed.includes(user?.committee_post)) {
+    if (user?.role !== 'admin' && !allowed.includes(user?.committee_post))
       return res.status(403).json({ message: 'Not authorized for this team' })
-    }
 
     const { data, error } = await supabase
       .from('team_uploads')
-      .insert({ title, description, link, category, team, uploaded_by: userId })
+      .insert({ title, description, link, category: category || 'other', team, uploaded_by: userId })
       .select(`*, uploader:uploaded_by(id, full_name, username, committee_post)`)
       .single()
 
@@ -67,13 +65,12 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 })
 
-// ── DELETE /team-uploads/:id ──
-router.delete('/:id', authenticateToken, async (req, res) => {
+// DELETE /api/team-uploads/:id
+router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params
     const userId = req.user.id
 
-    // Only uploader or admin can delete
     const { data: upload } = await supabase
       .from('team_uploads').select('uploaded_by').eq('id', id).single()
 
@@ -82,10 +79,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     const { data: user } = await supabase
       .from('users').select('role, committee_post').eq('id', userId).single()
 
-    const isHead = ['Executive Head','Representative Head','Designing Head'].includes(user?.committee_post)
-    if (user?.role !== 'admin' && upload.uploaded_by !== userId && !isHead) {
+    const isHead = ['Executive Head', 'Representative Head', 'Designing Head'].includes(user?.committee_post)
+
+    if (user?.role !== 'admin' && upload.uploaded_by !== userId && !isHead)
       return res.status(403).json({ message: 'Not authorized' })
-    }
 
     const { error } = await supabase.from('team_uploads').delete().eq('id', id)
     if (error) throw error
