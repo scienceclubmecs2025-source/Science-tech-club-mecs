@@ -1,97 +1,87 @@
-const express = require('express');
-const router = express.Router();
-const supabase = require('../config/supabase');
-const auth = require('../middleware/auth');
+const express = require('express')
+const router  = express.Router()
+const supabase = require('../config/supabase')
+const auth     = require('../middleware/auth')
 
 const DEFAULT_CONFIG = {
-  site_name: 'Science & Tech Club',
-  logo_url: '',
-  mecs_logo_url: '',
-  theme_mode: 'dark',
-  primary_color: '3b82f6',
+  site_name:         'Science & Tech Club',
+  logo_url:          '',
+  mecs_logo_url:     '',
+  theme_mode:        'dark',
+  primary_color:     '3b82f6',
   watermark_opacity: 0.25
-};
+}
 
-// GET /api/config — public
+// GET /api/config — public, never throws 500
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('site_config')
       .select('*')
       .limit(1)
-      .maybeSingle();
+      .maybeSingle()
 
-    if (error) throw error;
+    // If table missing or any error, silently return defaults
+    if (error) {
+      console.warn('Config fetch warning (returning defaults):', error.message)
+      return res.json(DEFAULT_CONFIG)
+    }
 
-    // Always return a valid object
-    res.json(data || DEFAULT_CONFIG);
-  } catch (error) {
-    console.error('Config fetch error:', error);
-    res.json(DEFAULT_CONFIG);
+    res.json(data || DEFAULT_CONFIG)
+  } catch (err) {
+    console.error('Config fetch error:', err)
+    res.json(DEFAULT_CONFIG)   // always 200, never 500
   }
-});
+})
 
 // PUT /api/config — admin only
 router.put('/', auth, async (req, res) => {
   try {
-    const {
-      site_name,
-      logo_url,
-      mecs_logo_url,
-      theme_mode,
-      primary_color,
-      watermark_opacity
-    } = req.body;
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ message: 'Access denied' })
+
+    const payload = {
+      site_name:         req.body.site_name         ?? DEFAULT_CONFIG.site_name,
+      logo_url:          req.body.logo_url          ?? '',
+      mecs_logo_url:     req.body.mecs_logo_url     ?? '',
+      theme_mode:        req.body.theme_mode         ?? 'dark',
+      primary_color:     req.body.primary_color      ?? '3b82f6',
+      watermark_opacity: parseFloat(req.body.watermark_opacity) || 0.25,
+      updated_at:        new Date().toISOString()
+    }
 
     const { data: existing } = await supabase
       .from('site_config')
       .select('id')
       .limit(1)
-      .maybeSingle();
+      .maybeSingle()
 
-    let result;
+    let result
 
     if (existing) {
       const { data, error } = await supabase
         .from('site_config')
-        .update({
-          site_name,
-          logo_url,
-          mecs_logo_url,
-          theme_mode,
-          primary_color,
-          watermark_opacity,
-          updated_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', existing.id)
         .select()
-        .single();
-      if (error) throw error;
-      result = data;
+        .single()
+      if (error) throw error
+      result = data
     } else {
       const { data, error } = await supabase
         .from('site_config')
-        .insert([{
-          site_name,
-          logo_url,
-          mecs_logo_url,
-          theme_mode,
-          primary_color,
-          watermark_opacity
-        }])
+        .insert([payload])
         .select()
-        .single();
-      if (error) throw error;
-      result = data;
+        .single()
+      if (error) throw error
+      result = data
     }
 
-    res.json(result);
-  } catch (error) {
-    console.error('Config update error:', error);
-    res.status(500).json({ message: 'Failed to update config', error: error.message });
+    res.json(result)
+  } catch (err) {
+    console.error('Config update error:', err)
+    res.status(500).json({ message: 'Failed to update config', error: err.message })
   }
-});
+})
 
-// IMPORTANT: export the router, not an object
-module.exports = router;
-
+module.exports = router
