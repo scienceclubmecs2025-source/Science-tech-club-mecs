@@ -18,6 +18,14 @@ const corsOptions = {
   optionsSuccessStatus: 200
 }
 
+// ── ADD these imports at the top with other route imports ──
+import teamUploadsRouter    from './src/routes/teamUploads.js'
+import teamTemplatesRouter  from './src/routes/teamTemplates.js'
+// ── ADD these with other app.use() route registrations ──
+app.use('/api/team-uploads',   teamUploadsRouter)
+app.use('/api/team-templates', teamTemplatesRouter)
+// config route already registered — just replace the file content above
+
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 app.use(express.json());
