@@ -1,8 +1,7 @@
-import express from 'express'
-import supabase from '../config/supabase.js'
-import auth from '../middleware/auth.js'
-
-const router = express.Router()
+const express  = require('express')
+const router   = express.Router()
+const supabase = require('../config/supabase')
+const auth     = require('../middleware/auth')
 
 const DEFAULT_CONFIG = {
   site_name:         'Science & Tech Club',
@@ -85,4 +84,4 @@ router.put('/', auth, async (req, res) => {
   }
 })
 
-export default router
+module.exports = router
