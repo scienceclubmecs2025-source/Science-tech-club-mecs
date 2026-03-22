@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import {
   Users, BookOpen, Upload, UserPlus, Trash2, GraduationCap,
   Settings, Calendar, Award, FileText, Bell, Download, Shield,
-  Database, Activity, UserCheck, Check, X, ClipboardList, KeyRound
+  Database, Activity, UserCheck, Check, X, ClipboardList, KeyRound,
+  Palette, Instagram, Youtube, Linkedin, Globe, Link2
 } from 'lucide-react'
 import api from '../services/api'
 import { generateStatisticsReport } from '../utils/reportGenerator'
@@ -16,6 +17,7 @@ export default function AdminPanel() {
   const [projects, setProjects]           = useState([])
   const [announcements, setAnnouncements] = useState([])
   const [reportFormats, setReportFormats] = useState([])
+  const [templates, setTemplates]         = useState([])
   const [generatingReport, setGeneratingReport] = useState(false)
 
   // Requests state
@@ -35,15 +37,14 @@ export default function AdminPanel() {
     address: '', phone: '', email: '', guardian_name: '',
     guardian_number: '', field_of_interest: ''
   })
-
-  // ── CHANGED: faculty state now uses full_name + emp_code ──
   const [newFaculty, setNewFaculty] = useState({
-    full_name: '', emp_code: '', department: ''
+    username: '', email: '', department: '', employmentid: ''
   })
-
   const [config, setConfig] = useState({
     site_name: 'Science & Tech Club', logo_url: '', mecs_logo_url: '',
-    theme_mode: 'dark', primary_color: '#3b82f6', watermark_opacity: '0.25'
+    theme_mode: 'dark', primary_color: '#3b82f6', watermark_opacity: '0.25',
+    canva_link: '', instagram: '', youtube: '', linkedin: '',
+    twitter: '', website: '', whatsapp: ''
   })
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: '', content: '', target_audience: 'all'
@@ -52,6 +53,12 @@ export default function AdminPanel() {
     title: '', academic_year: '', file: null
   })
   const [uploadingReport, setUploadingReport] = useState(false)
+
+  // Template state
+  const [templateForm, setTemplateForm] = useState({
+    title: '', link: '', team: 'executive'
+  })
+  const [savingTemplate, setSavingTemplate] = useState(false)
 
   const user = JSON.parse(localStorage.getItem('user'))
 
@@ -62,8 +69,12 @@ export default function AdminPanel() {
     'CSD Head', 'CSD Vice Head', 'IT Head', 'IT Vice Head',
     'CME Head', 'CME Vice Head', 'Civil Head', 'Civil Vice Head',
     'Mech Head', 'Mech Vice Head', 'ECE Head', 'ECE Vice Head',
-    'EEE Head', 'EEE Vice Head', 'Executive Head', 'Executive Member',
-    'Representative Head', 'Representative Member', 'Developer'
+    'EEE Head', 'EEE Vice Head',
+    'Executive Head', 'Executive Member',
+    'Representative Head', 'Representative Member',
+    'Designing Head', 'Designing Team',
+    'Social Media Team',
+    'Developer'
   ]
 
   useEffect(() => {
@@ -73,7 +84,7 @@ export default function AdminPanel() {
     if (activeTab === 'projects')      fetchProjects()
     if (activeTab === 'announcements') fetchAnnouncements()
     if (activeTab === 'config')        fetchConfig()
-    if (activeTab === 'reports')       fetchReportFormats()
+    if (activeTab === 'reports')       { fetchReportFormats(); fetchTemplates() }
     if (activeTab === 'requests')      fetchRequests()
   }, [activeTab])
 
@@ -102,12 +113,13 @@ export default function AdminPanel() {
     }
   }
 
-  const fetchAllUsers      = async () => { try { const d = await api.get('/users');         setAllUsers(Array.isArray(d) ? d : [])         } catch(e) { console.error(e) } }
-  const fetchEvents        = async () => { try { const d = await api.get('/events');        setEvents(Array.isArray(d) ? d : [])           } catch(e) { console.error(e) } }
-  const fetchProjects      = async () => { try { const d = await api.get('/projects');      setProjects(Array.isArray(d) ? d : [])         } catch(e) { console.error(e) } }
-  const fetchAnnouncements = async () => { try { const d = await api.get('/announcements'); setAnnouncements(Array.isArray(d) ? d : [])    } catch(e) { console.error(e) } }
-  const fetchReportFormats = async () => { try { const d = await api.get('/reports');       setReportFormats(Array.isArray(d) ? d : [])    } catch(e) { console.error(e) } }
-  const fetchConfig        = async () => { try { const d = await api.get('/config');        setConfig(prev => ({ ...prev, ...(d || {}) })) } catch(e) { console.error(e) } }
+  const fetchAllUsers      = async () => { try { const d = await api.get('/users');            setAllUsers(Array.isArray(d) ? d : [])         } catch(e) { console.error(e) } }
+  const fetchEvents        = async () => { try { const d = await api.get('/events');           setEvents(Array.isArray(d) ? d : [])           } catch(e) { console.error(e) } }
+  const fetchProjects      = async () => { try { const d = await api.get('/projects');         setProjects(Array.isArray(d) ? d : [])         } catch(e) { console.error(e) } }
+  const fetchAnnouncements = async () => { try { const d = await api.get('/announcements');    setAnnouncements(Array.isArray(d) ? d : [])    } catch(e) { console.error(e) } }
+  const fetchReportFormats = async () => { try { const d = await api.get('/reports');          setReportFormats(Array.isArray(d) ? d : [])    } catch(e) { console.error(e) } }
+  const fetchTemplates     = async () => { try { const d = await api.get('/team-templates');   setTemplates(Array.isArray(d) ? d : [])        } catch(e) { console.error(e) } }
+  const fetchConfig        = async () => { try { const d = await api.get('/config');           setConfig(prev => ({ ...prev, ...(d || {}) })) } catch(e) { console.error(e) } }
 
   const fetchRequests = async () => {
     try {
@@ -128,13 +140,9 @@ export default function AdminPanel() {
     try {
       const users = await api.get('/users')
       const uids = (Array.isArray(users) ? users : [])
-        .map(u => u.roll_number)
-        .filter(Boolean)
-        .sort()
+        .map(u => u.roll_number).filter(Boolean).sort()
       setExistingUIDs(uids)
-    } catch (e) {
-      setExistingUIDs([])
-    }
+    } catch (e) { setExistingUIDs([]) }
   }
 
   const handleAcceptProfile = async () => {
@@ -144,51 +152,35 @@ export default function AdminPanel() {
     try {
       await api.put(`/requests/profile/${acceptModal.id}/accept`, { unique_id: assignedUID.trim() })
       alert('✅ Profile created! Credentials sent to user email.')
-      setAcceptModal(null)
-      setAssignedUID('')
-      fetchRequests()
-      fetchDashboard()
+      setAcceptModal(null); setAssignedUID('')
+      fetchRequests(); fetchDashboard()
     } catch (error) {
       alert(error?.response?.data?.message || 'Failed to accept request')
-    } finally {
-      setAccepting(false)
-    }
+    } finally { setAccepting(false) }
   }
 
   const handleRejectProfile = async (id) => {
     if (!confirm('Reject this profile request?')) return
     setProcessingId(id)
-    try {
-      await api.put(`/requests/profile/${id}/reject`)
-      alert('Request rejected.')
-      fetchRequests()
-    } catch (error) {
-      alert('Failed to reject request')
-    } finally { setProcessingId(null) }
+    try { await api.put(`/requests/profile/${id}/reject`); alert('Request rejected.'); fetchRequests() }
+    catch (error) { alert('Failed to reject request') }
+    finally { setProcessingId(null) }
   }
 
   const handleApprovePassword = async (id) => {
     if (!confirm('Reset password and send to user email?')) return
     setProcessingId(id)
-    try {
-      await api.put(`/requests/password/${id}/approve`)
-      alert('✅ Password reset! New password sent to user email.')
-      fetchRequests()
-    } catch (error) {
-      alert(error?.response?.data?.message || 'Failed to reset password')
-    } finally { setProcessingId(null) }
+    try { await api.put(`/requests/password/${id}/approve`); alert('✅ Password reset! New password sent to user email.'); fetchRequests() }
+    catch (error) { alert(error?.response?.data?.message || 'Failed to reset password') }
+    finally { setProcessingId(null) }
   }
 
   const handleRejectPassword = async (id) => {
     if (!confirm('Reject this password request?')) return
     setProcessingId(id)
-    try {
-      await api.put(`/requests/password/${id}/reject`)
-      alert('Request rejected.')
-      fetchRequests()
-    } catch (error) {
-      alert('Failed to reject')
-    } finally { setProcessingId(null) }
+    try { await api.put(`/requests/password/${id}/reject`); alert('Request rejected.'); fetchRequests() }
+    catch (error) { alert('Failed to reject') }
+    finally { setProcessingId(null) }
   }
 
   const handleGenerateReport = async () => {
@@ -199,13 +191,15 @@ export default function AdminPanel() {
       const evs   = Array.isArray(e) ? e : []
       const projs = Array.isArray(p) ? p : []
       await generateStatisticsReport(
-        { total_users: users.length, committee_members: users.filter(x => x.is_committee).length, active_students: users.filter(x => x.role === 'student').length, faculty_count: users.filter(x => x.role === 'faculty').length, total_events: evs.length, total_projects: projs.length },
+        { total_users: users.length, committee_members: users.filter(x => x.is_committee).length,
+          active_students: users.filter(x => x.role === 'student').length,
+          faculty_count: users.filter(x => x.role === 'faculty').length,
+          total_events: evs.length, total_projects: projs.length },
         users, evs, projs
       )
       alert('Report generated successfully!')
-    } catch (error) {
-      alert('Failed to generate report.')
-    } finally { setGeneratingReport(false) }
+    } catch (error) { alert('Failed to generate report.') }
+    finally { setGeneratingReport(false) }
   }
 
   const handleAddStudent = async (e) => {
@@ -218,19 +212,14 @@ export default function AdminPanel() {
     } catch (error) { alert(error.response?.data?.message || 'Failed to add student') }
   }
 
-  // ── CHANGED: sends full_name + emp_code to new backend route ──
   const handleAddFaculty = async (e) => {
     e.preventDefault()
     try {
-      await api.post('/admin/add-faculty', {
-        full_name:  newFaculty.full_name,
-        emp_code:   newFaculty.emp_code,
-        department: newFaculty.department
-      })
-      alert(`Faculty added!\nUsername: ${newFaculty.emp_code}\nPassword: ${newFaculty.emp_code}\n(Faculty can change these from their profile)`)
-      setNewFaculty({ full_name: '', emp_code: '', department: '' })
-      fetchDashboard()
-      fetchAllUsers()
+      const username = newFaculty.email.split('@')[0]
+      await api.post('/admin/add-faculty', { username, email: newFaculty.email, password: newFaculty.employmentid, employment_id: newFaculty.employmentid, department: newFaculty.department })
+      alert('Faculty added successfully')
+      setNewFaculty({ username: '', email: '', department: '', employmentid: '' })
+      fetchDashboard(); fetchAllUsers()
     } catch (error) { alert(error.response?.data?.message || 'Failed to add faculty') }
   }
 
@@ -240,8 +229,10 @@ export default function AdminPanel() {
   }
 
   const handleAssignCommitteePost = async (userId, post) => {
-    try { await api.put(`/users/${userId}`, { committee_post: post, is_committee: post !== null && post !== '' }); alert('Committee post assigned'); fetchAllUsers() }
-    catch (error) { alert('Failed to assign post') }
+    try {
+      await api.put(`/users/${userId}`, { committee_post: post, is_committee: post !== null && post !== '' })
+      alert('Committee post assigned'); fetchAllUsers()
+    } catch (error) { alert('Failed to assign post') }
   }
 
   const handleGraduateStudents = async () => {
@@ -277,8 +268,7 @@ export default function AdminPanel() {
     const formData = new FormData(); formData.append('file', file)
     try {
       const { data } = await api.post('/admin/upload-faculty', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      alert(`${data.message}\n${data.errors?.length ? 'Errors:\n' + data.errors.join('\n') : ''}`)
-      fetchDashboard(); fetchAllUsers(); e.target.value = null
+      alert(`${data.message}`); fetchDashboard(); fetchAllUsers(); e.target.value = null
     } catch (error) { alert(error.response?.data?.message || 'Failed to upload faculty') }
   }
 
@@ -331,20 +321,32 @@ export default function AdminPanel() {
     catch (error) { alert('Failed to activate format') }
   }
 
-  // ── CHANGED: faculty CSV template updated to new format ──
+  // ── Template handlers ──
+  const handleSaveTemplate = async (e) => {
+    e.preventDefault()
+    if (!templateForm.link.trim()) { alert('Please enter a link'); return }
+    setSavingTemplate(true)
+    try {
+      await api.post('/team-templates', templateForm)
+      alert(`✅ Template saved for ${templateForm.team} team!`)
+      setTemplateForm({ title: '', link: '', team: 'executive' })
+      fetchTemplates()
+    } catch (err) { alert(err.response?.data?.message || 'Failed to save template') }
+    finally { setSavingTemplate(false) }
+  }
+
+  const handleDeleteTemplate = async (id) => {
+    if (!confirm('Delete this template?')) return
+    try { await api.delete(`/team-templates/${id}`); fetchTemplates() }
+    catch (e) { alert('Failed to delete') }
+  }
+
   const downloadCSVTemplate = (type) => {
     let csvContent = ''
     if (type === 'students') {
-      csvContent = [
-        'UNIQUE_ID,NAME,ROLL-NO,BRANCH,YEAR,ADDRESS,PHONE NO,EMAIL ID,FATHER/GUARDIAN NAME,FATHER/GUARDIAN NUMBER,FIELD OF INTEREST',
-        '2024CSE001,Ravi Kumar,21R11A0501,CSE,1,Hyderabad,9876543210,ravi@example.com,Suresh Kumar,9123456780,AI & ML'
-      ].join('\n')
+      csvContent = ['UNIQUE_ID,NAME,ROLL-NO,BRANCH,YEAR,ADDRESS,PHONE NO,EMAIL ID,FATHER/GUARDIAN NAME,FATHER/GUARDIAN NUMBER,FIELD OF INTEREST', '2024CSE001,Ravi Kumar,21R11A0501,CSE,1,Hyderabad,9876543210,ravi@example.com,Suresh Kumar,9123456780,AI & ML'].join('\n')
     } else {
-      csvContent = [
-        'SNo,Emp code,Employee Name',
-        '1,EMP001,Dr. Ravi Kumar',
-        '2,EMP002,Prof. Anita Sharma'
-      ].join('\n')
+      csvContent = ['email,employment_id,department', 'drsmith@college.edu,EMP12345,CSE'].join('\n')
     }
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -362,7 +364,11 @@ export default function AdminPanel() {
     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.pending}`}>{status}</span>
   }
 
-  const pendingCount = profileRequests.filter(r => r.status === 'pending').length + passwordRequests.filter(r => r.status === 'pending').length
+  const pendingCount = profileRequests.filter(r => r.status === 'pending').length
+    + passwordRequests.filter(r => r.status === 'pending').length
+
+  const teamLabel = { executive: 'Executive', representative: 'Representative', design: 'Designing Team' }
+  const teamColor = { executive: 'text-pink-400', representative: 'text-indigo-400', design: 'text-purple-400' }
 
   if (loading) {
     return (
@@ -406,13 +412,10 @@ export default function AdminPanel() {
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition whitespace-nowrap relative ${
                   activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
+                }`}>
                 <Icon className="w-4 h-4" />
                 {tab.label}
                 {tab.badge > 0 && (
@@ -455,12 +458,15 @@ export default function AdminPanel() {
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                 <h3 className="font-semibold text-white mb-3 flex items-center gap-2"><Activity className="w-4 h-4 text-green-400" /> Quick Actions</h3>
                 <div className="space-y-2">
-                  <button onClick={handleGenerateReport} disabled={generatingReport} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
+                  <button onClick={handleGenerateReport} disabled={generatingReport}
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2 rounded-lg text-sm font-medium transition">
                     {generatingReport ? 'Generating...' : '📊 Generate Statistics Report'}
                   </button>
-                  <button onClick={() => setActiveTab('requests')} className="w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                  <button onClick={() => setActiveTab('requests')}
+                    className="w-full bg-gray-800 hover:bg-gray-700 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
                     <ClipboardList className="w-4 h-4 text-yellow-400" />
-                    View Pending Requests {pendingCount > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingCount}</span>}
+                    View Pending Requests
+                    {pendingCount > 0 && <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">{pendingCount}</span>}
                   </button>
                 </div>
               </div>
@@ -476,24 +482,18 @@ export default function AdminPanel() {
               <h2 className="text-lg font-semibold text-white">Member Requests</h2>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setRequestsTab('profile')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${requestsTab === 'profile' ? 'bg-blue-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'}`}
-              >
-                <UserPlus className="w-4 h-4" />
-                Profile Requests
+              <button onClick={() => setRequestsTab('profile')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${requestsTab === 'profile' ? 'bg-blue-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'}`}>
+                <UserPlus className="w-4 h-4" /> Profile Requests
                 {profileRequests.filter(r => r.status === 'pending').length > 0 && (
                   <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                     {profileRequests.filter(r => r.status === 'pending').length}
                   </span>
                 )}
               </button>
-              <button
-                onClick={() => setRequestsTab('password')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${requestsTab === 'password' ? 'bg-purple-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'}`}
-              >
-                <KeyRound className="w-4 h-4" />
-                Password Requests
+              <button onClick={() => setRequestsTab('password')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${requestsTab === 'password' ? 'bg-purple-600 text-white' : 'bg-gray-900 text-gray-400 hover:text-white border border-gray-800'}`}>
+                <KeyRound className="w-4 h-4" /> Password Requests
                 {passwordRequests.filter(r => r.status === 'pending').length > 0 && (
                   <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                     {passwordRequests.filter(r => r.status === 'pending').length}
@@ -506,8 +506,7 @@ export default function AdminPanel() {
               <div className="space-y-3">
                 {profileRequests.length === 0 ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400">
-                    <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    <p>No profile requests yet</p>
+                    <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>No profile requests yet</p>
                   </div>
                 ) : profileRequests.map(req => (
                   <div key={req.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -530,17 +529,12 @@ export default function AdminPanel() {
                       </div>
                       {req.status === 'pending' && (
                         <div className="flex gap-2 shrink-0">
-                          <button
-                            onClick={() => openAcceptModal(req)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition"
-                          >
+                          <button onClick={() => openAcceptModal(req)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition">
                             <Check className="w-4 h-4" /> Accept
                           </button>
-                          <button
-                            onClick={() => handleRejectProfile(req.id)}
-                            disabled={processingId === req.id}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition"
-                          >
+                          <button onClick={() => handleRejectProfile(req.id)} disabled={processingId === req.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition">
                             <X className="w-4 h-4" /> Reject
                           </button>
                         </div>
@@ -555,8 +549,7 @@ export default function AdminPanel() {
               <div className="space-y-3">
                 {passwordRequests.length === 0 ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400">
-                    <KeyRound className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    <p>No password requests yet</p>
+                    <KeyRound className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>No password requests yet</p>
                   </div>
                 ) : passwordRequests.map(req => (
                   <div key={req.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -572,19 +565,13 @@ export default function AdminPanel() {
                       </div>
                       {req.status === 'pending' && (
                         <div className="flex gap-2 shrink-0">
-                          <button
-                            onClick={() => handleApprovePassword(req.id)}
-                            disabled={processingId === req.id}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg text-sm font-medium transition"
-                          >
+                          <button onClick={() => handleApprovePassword(req.id)} disabled={processingId === req.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg text-sm font-medium transition">
                             <KeyRound className="w-4 h-4" />
                             {processingId === req.id ? 'Resetting...' : 'Reset & Send'}
                           </button>
-                          <button
-                            onClick={() => handleRejectPassword(req.id)}
-                            disabled={processingId === req.id}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition"
-                          >
+                          <button onClick={() => handleRejectPassword(req.id)} disabled={processingId === req.id}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 disabled:opacity-50 rounded-lg text-sm font-medium text-red-400 transition">
                             <X className="w-4 h-4" /> Reject
                           </button>
                         </div>
@@ -600,7 +587,6 @@ export default function AdminPanel() {
         {/* ── USERS ── */}
         {activeTab === 'users' && (
           <div className="space-y-6">
-
             {/* Bulk Upload */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><Upload className="w-4 h-4 text-blue-400" /> Bulk Upload</h3>
@@ -616,13 +602,9 @@ export default function AdminPanel() {
                     <button onClick={() => downloadCSVTemplate('students')} className="px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition"><Download className="w-4 h-4" /></button>
                   </div>
                 </div>
-
-                {/* ── CHANGED: updated faculty CSV description ── */}
                 <div className="space-y-2">
                   <p className="text-gray-300 text-sm font-medium">Upload Faculty CSV</p>
-                  <p className="text-gray-500 text-xs">
-                    Required: <span className="font-mono text-gray-400">SNo, Emp code, Employee Name</span> — username &amp; password auto-set to Emp Code
-                  </p>
+                  <p className="text-gray-500 text-xs">Required: email, employment_id, department</p>
                   <div className="flex gap-2">
                     <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium cursor-pointer transition">
                       <Upload className="w-4 h-4" /> Upload Faculty
@@ -657,40 +639,20 @@ export default function AdminPanel() {
               </form>
             </div>
 
-            {/* ── CHANGED: Add Faculty form — new fields ── */}
+            {/* Add Faculty */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-purple-400" /> Add Faculty
-              </h3>
-              <p className="text-gray-500 text-xs mb-4">
-                Username &amp; password will be set to the Emp Code. Faculty can change them from their profile.
-              </p>
+              <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><GraduationCap className="w-4 h-4 text-purple-400" /> Add Faculty</h3>
               <form onSubmit={handleAddFaculty} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <input
-                  required
-                  placeholder="Employee Name"
-                  value={newFaculty.full_name}
-                  onChange={e => setNewFaculty({...newFaculty, full_name: e.target.value})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
-                />
-                <input
-                  required
-                  placeholder="Emp Code (e.g. EMP001)"
-                  value={newFaculty.emp_code}
-                  onChange={e => setNewFaculty({...newFaculty, emp_code: e.target.value.trim()})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500 font-mono"
-                />
-                <select
-                  value={newFaculty.department}
-                  onChange={e => setNewFaculty({...newFaculty, department: e.target.value})}
-                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
-                >
-                  <option value="">Department (optional)</option>
+                <input required type="email" placeholder="Email" value={newFaculty.email} onChange={e => setNewFaculty({...newFaculty, email: e.target.value})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
+                <input required placeholder="Employment ID" value={newFaculty.employmentid} onChange={e => setNewFaculty({...newFaculty, employmentid: e.target.value})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
+                <select value={newFaculty.department} onChange={e => setNewFaculty({...newFaculty, department: e.target.value})}
+                  className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500">
+                  <option value="">Department</option>
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
-                <button type="submit" className="bg-purple-600 hover:bg-purple-700 py-2.5 rounded-lg text-sm font-medium transition">
-                  Add Faculty
-                </button>
+                <button type="submit" className="bg-purple-600 hover:bg-purple-700 py-2.5 rounded-lg text-sm font-medium transition">Add Faculty</button>
               </form>
             </div>
 
@@ -698,7 +660,8 @@ export default function AdminPanel() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-white flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> All Users ({allUsers.length})</h3>
-                <button onClick={handleGraduateStudents} className="flex items-center gap-2 px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-600/30 rounded-lg text-yellow-400 text-sm font-medium transition">
+                <button onClick={handleGraduateStudents}
+                  className="flex items-center gap-2 px-3 py-2 bg-yellow-600/20 hover:bg-yellow-600/40 border border-yellow-600/30 rounded-lg text-yellow-400 text-sm font-medium transition">
                   <GraduationCap className="w-4 h-4" /> Graduate All
                 </button>
               </div>
@@ -737,7 +700,8 @@ export default function AdminPanel() {
                         <td className="py-2.5 pr-4 text-gray-400">{u.department || '—'}</td>
                         <td className="py-2.5 pr-4 text-gray-400">{u.year || '—'}</td>
                         <td className="py-2.5">
-                          <button onClick={() => handleDeleteUser(u.id, u.username)} className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
+                          <button onClick={() => handleDeleteUser(u.id, u.username)}
+                            className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </td>
@@ -774,7 +738,7 @@ export default function AdminPanel() {
                           <select defaultValue="" onChange={e => e.target.value && handleAssignCommitteePost(u.id, e.target.value)}
                             className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white">
                             <option value="">Assign post...</option>
-                            <option value="">Remove post</option>
+                            <option value="">— Remove post</option>
                             {committeePosts.map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                         </td>
@@ -836,7 +800,8 @@ export default function AdminPanel() {
                   <p className="text-gray-500 text-xs mt-1">{event.date}</p>
                 </div>
                 {event.status !== 'approved' && (
-                  <button onClick={() => handleApproveEvent(event.id)} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-xs font-medium transition shrink-0">
+                  <button onClick={() => handleApproveEvent(event.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-xs font-medium transition shrink-0">
                     <Check className="w-3.5 h-3.5" /> Approve
                   </button>
                 )}
@@ -861,8 +826,10 @@ export default function AdminPanel() {
         {/* ── REPORTS ── */}
         {activeTab === 'reports' && (
           <div className="space-y-6">
+
+            {/* Upload Report Format */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-400" /> Upload Report Format</h3>
+              <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><FileText className="w-4 h-4 text-blue-400" /> Upload Report Format (File)</h3>
               <form onSubmit={handleUploadReport} className="space-y-3">
                 <input required placeholder="Report Title" value={reportFormData.title} onChange={e => setReportFormData({...reportFormData, title: e.target.value})}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
@@ -870,12 +837,72 @@ export default function AdminPanel() {
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
                 <input required type="file" accept=".pdf,.doc,.docx" onChange={e => setReportFormData({...reportFormData, file: e.target.files[0]})}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm" />
-                <button type="submit" disabled={uploadingReport} className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
+                <button type="submit" disabled={uploadingReport}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
                   {uploadingReport ? 'Uploading...' : 'Upload Format'}
                 </button>
               </form>
             </div>
+
+            {/* ── Team Templates (link-based) ── */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="font-semibold text-white mb-1 flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-yellow-400" /> Team Document Templates
+              </h3>
+              <p className="text-gray-500 text-xs mb-4">
+                Share a Google Drive / PDF link as the template that Executive, Representative, or Design teams can download.
+              </p>
+              <form onSubmit={handleSaveTemplate} className="space-y-3 mb-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input required placeholder="Template Title" value={templateForm.title}
+                    onChange={e => setTemplateForm({...templateForm, title: e.target.value})}
+                    className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500" />
+                  <input required placeholder="https://drive.google.com/..." value={templateForm.link}
+                    onChange={e => setTemplateForm({...templateForm, link: e.target.value})}
+                    className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500" />
+                  <select value={templateForm.team} onChange={e => setTemplateForm({...templateForm, team: e.target.value})}
+                    className="px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-yellow-500">
+                    <option value="executive">Executive — Report Template</option>
+                    <option value="representative">Representative — Letter Template</option>
+                    <option value="design">Designing Team — Design Template</option>
+                  </select>
+                </div>
+                <button type="submit" disabled={savingTemplate}
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
+                  {savingTemplate ? 'Saving...' : 'Save Template Link'}
+                </button>
+              </form>
+
+              {/* Saved Templates */}
+              <div className="space-y-2">
+                {templates.length === 0 ? (
+                  <p className="text-gray-500 text-sm text-center py-4">No templates saved yet.</p>
+                ) : templates.map(t => (
+                  <div key={t.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium">{t.title}</p>
+                      <p className={`text-xs font-medium ${teamColor[t.team] || 'text-gray-400'}`}>
+                        {teamLabel[t.team] || t.team}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a href={t.link} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/30 text-blue-400 rounded-lg text-xs transition">
+                        Preview
+                      </a>
+                      <button onClick={() => handleDeleteTemplate(t.id)}
+                        className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Report Formats list */}
             <div className="space-y-3">
+              <h3 className="font-semibold text-white">Uploaded Report Formats</h3>
               {reportFormats.map(fmt => (
                 <div key={fmt.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex justify-between items-center gap-4">
                   <div>
@@ -885,7 +912,8 @@ export default function AdminPanel() {
                   </div>
                   <div className="flex gap-2">
                     {!fmt.is_active && (
-                      <button onClick={() => handleActivateReport(fmt.id)} className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/40 border border-green-600/30 rounded-lg text-green-400 text-xs transition">Activate</button>
+                      <button onClick={() => handleActivateReport(fmt.id)}
+                        className="px-3 py-1.5 bg-green-600/20 hover:bg-green-600/40 border border-green-600/30 rounded-lg text-green-400 text-xs transition">Activate</button>
                     )}
                     <button onClick={() => handleDeleteReport(fmt.id)} className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
                       <Trash2 className="w-4 h-4" />
@@ -899,26 +927,65 @@ export default function AdminPanel() {
 
         {/* ── CONFIG ── */}
         {activeTab === 'config' && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><Settings className="w-4 h-4 text-gray-400" /> Site Configuration</h3>
-            <form onSubmit={handleConfigSubmit} className="space-y-4">
-              {[['site_name','Site Name'],['logo_url','Logo URL'],['mecs_logo_url','MECS Logo URL'],['primary_color','Primary Color'],['watermark_opacity','Watermark Opacity']].map(([field, label]) => (
-                <div key={field}>
-                  <label className="block text-gray-300 text-sm mb-1">{label}</label>
-                  <input type="text" value={config[field] || ''} onChange={e => setConfig({...config, [field]: e.target.value})}
-                    className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
+          <div className="space-y-6">
+
+            {/* Site Config */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="font-semibold text-white mb-4 flex items-center gap-2"><Settings className="w-4 h-4 text-gray-400" /> Site Configuration</h3>
+              <form onSubmit={handleConfigSubmit} className="space-y-4">
+                {[['site_name','Site Name'],['logo_url','Logo URL'],['mecs_logo_url','MECS Logo URL'],['primary_color','Primary Color'],['watermark_opacity','Watermark Opacity']].map(([field, label]) => (
+                  <div key={field}>
+                    <label className="block text-gray-300 text-sm mb-1">{label}</label>
+                    <input type="text" value={config[field] || ''} onChange={e => setConfig({...config, [field]: e.target.value})}
+                      className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-gray-300 text-sm mb-1">Theme Mode</label>
+                  <select value={config.theme_mode} onChange={e => setConfig({...config, theme_mode: e.target.value})}
+                    className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
                 </div>
-              ))}
-              <div>
-                <label className="block text-gray-300 text-sm mb-1">Theme Mode</label>
-                <select value={config.theme_mode} onChange={e => setConfig({...config, theme_mode: e.target.value})}
-                  className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500">
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                </select>
-              </div>
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg text-sm font-medium transition">Save Configuration</button>
-            </form>
+
+                {/* ── Canva Link ── */}
+                <div className="pt-2 border-t border-gray-800">
+                  <label className="block text-purple-300 text-sm font-medium mb-1 flex items-center gap-1.5">
+                    <Palette className="w-4 h-4" /> Canva Team Link
+                  </label>
+                  <input type="url" value={config.canva_link || ''} onChange={e => setConfig({...config, canva_link: e.target.value})}
+                    placeholder="https://www.canva.com/brand/..."
+                    className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500" />
+                </div>
+
+                {/* ── Social Media Links ── */}
+                <div className="pt-2 border-t border-gray-800">
+                  <p className="text-pink-300 text-sm font-medium mb-3 flex items-center gap-1.5">
+                    <Instagram className="w-4 h-4" /> Social Media Links
+                  </p>
+                  <div className="space-y-3">
+                    {[
+                      ['instagram', '📸 Instagram URL'],
+                      ['youtube',   '▶️ YouTube URL'],
+                      ['linkedin',  '💼 LinkedIn URL'],
+                      ['twitter',   '🐦 Twitter / X URL'],
+                      ['website',   '🌐 Club Website URL'],
+                      ['whatsapp',  '💬 WhatsApp Group Link'],
+                    ].map(([field, label]) => (
+                      <div key={field}>
+                        <label className="block text-gray-300 text-xs mb-1">{label}</label>
+                        <input type="url" value={config[field] || ''} onChange={e => setConfig({...config, [field]: e.target.value})}
+                          placeholder="https://..."
+                          className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg text-sm font-medium transition">Save Configuration</button>
+              </form>
+            </div>
           </div>
         )}
 
@@ -930,14 +997,12 @@ export default function AdminPanel() {
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-green-400" />
-                Accept Profile Request
+                <UserCheck className="w-5 h-5 text-green-400" /> Accept Profile Request
               </h3>
               <button onClick={() => setAcceptModal(null)} className="text-gray-400 hover:text-white transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
             <div className="bg-gray-800 rounded-xl p-4 mb-5 space-y-1 text-sm">
               <p className="text-white font-medium">{acceptModal.full_name}</p>
               <p className="text-gray-400">📧 {acceptModal.email}</p>
@@ -946,19 +1011,13 @@ export default function AdminPanel() {
               {acceptModal.guardian_phone && <p className="text-gray-400">👨‍👩‍👦 Guardian: {acceptModal.guardian_phone}</p>}
               {acceptModal.reason     && <p className="text-gray-500 italic text-xs mt-1">"{acceptModal.reason}"</p>}
             </div>
-
             <div className="mb-4">
               <label className="block text-gray-300 text-sm font-medium mb-1">
                 Assign Unique ID <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
-                value={assignedUID}
-                onChange={e => setAssignedUID(e.target.value)}
-                placeholder="e.g. 22A91A0501"
-                autoFocus
-                className="w-full px-3 py-2.5 bg-black border border-gray-600 rounded-lg text-white focus:outline-none focus:border-green-500 text-sm"
-              />
+              <input type="text" value={assignedUID} onChange={e => setAssignedUID(e.target.value)}
+                placeholder="e.g. 22A91A0501" autoFocus
+                className="w-full px-3 py-2.5 bg-black border border-gray-600 rounded-lg text-white focus:outline-none focus:border-green-500 text-sm" />
               <p className="text-gray-500 text-xs mt-1">
                 Default password will be:&nbsp;
                 <span className="text-green-400 font-mono">
@@ -966,20 +1025,14 @@ export default function AdminPanel() {
                 </span>
               </p>
             </div>
-
             {existingUIDs.length > 0 && (
               <div className="mb-5">
-                <p className="text-gray-400 text-xs font-medium mb-2">
-                  Previously assigned Unique IDs ({existingUIDs.length}) — click to reference:
-                </p>
+                <p className="text-gray-400 text-xs font-medium mb-2">Previously assigned Unique IDs ({existingUIDs.length}) — click to reference:</p>
                 <div className="max-h-28 overflow-y-auto bg-black rounded-lg p-2 border border-gray-800">
                   <div className="flex flex-wrap gap-1.5">
                     {existingUIDs.map(uid => (
-                      <span
-                        key={uid}
-                        onClick={() => setAssignedUID(uid)}
-                        className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 font-mono cursor-pointer transition"
-                      >
+                      <span key={uid} onClick={() => setAssignedUID(uid)}
+                        className="px-2 py-0.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 font-mono cursor-pointer transition" title="Click to use">
                         {uid}
                       </span>
                     ))}
@@ -988,19 +1041,13 @@ export default function AdminPanel() {
                 <p className="text-gray-600 text-xs mt-1">⚠️ Make sure new UID is unique.</p>
               </div>
             )}
-
             <div className="flex gap-3">
-              <button
-                onClick={() => setAcceptModal(null)}
-                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-300 transition"
-              >
+              <button onClick={() => setAcceptModal(null)}
+                className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium text-gray-300 transition">
                 Cancel
               </button>
-              <button
-                onClick={handleAcceptProfile}
-                disabled={accepting || !assignedUID.trim()}
-                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition"
-              >
+              <button onClick={handleAcceptProfile} disabled={accepting || !assignedUID.trim()}
+                className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition">
                 <Check className="w-4 h-4" />
                 {accepting ? 'Creating...' : 'Create Account'}
               </button>
