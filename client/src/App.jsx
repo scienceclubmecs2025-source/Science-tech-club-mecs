@@ -100,7 +100,8 @@ function usePageMeta(location) {
 
 // ── Helper: check if user's committee_post matches a set ─────────
 function hasPost(user, ...posts) {
-  return posts.includes(user?.committee_post)
+  const userPost = user?.committee_post?.trim().toLowerCase()
+  return posts.some(p => p.trim().toLowerCase() === userPost)
 }
 
 function AppContent() {
