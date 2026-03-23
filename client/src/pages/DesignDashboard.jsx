@@ -7,23 +7,30 @@ import {
 import api from '../services/api'
 
 export default function DesigningDashboard() {
-  const [uploads,    setUploads]    = useState([])
-  const [templates,  setTemplates]  = useState([])
-  const [tasks,      setTasks]      = useState([])
-  const [students,   setStudents]   = useState([])
-  const [team,       setTeam]       = useState([])
-  const [canvaLink,  setCanvaLink]  = useState('')
-  const [activeTab,  setActiveTab]  = useState('designs')
-  const [loading,    setLoading]    = useState(true)
-  const [showHireModal, setShowHireModal] = useState(false)
-  const [searchQ,    setSearchQ]    = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', link: '', category: 'poster' })
+  const [uploads,      setUploads]      = useState([])
+  const [templates,    setTemplates]    = useState([])
+  const [tasks,        setTasks]        = useState([])
+  const [students,     setStudents]     = useState([])
+  const [team,         setTeam]         = useState([])
+  const [canvaLink,    setCanvaLink]    = useState('')
+  const [activeTab,    setActiveTab]    = useState('designs')
+  const [loading,      setLoading]      = useState(true)
+  const [showHireModal,setShowHireModal]= useState(false)
+  const [searchQ,      setSearchQ]      = useState('')
+  const [submitting,   setSubmitting]   = useState(false)
+  const [form,         setForm]         = useState({ title: '', description: '', link: '', category: 'poster' })
 
-  const user   = JSON.parse(localStorage.getItem('user') || '{}')
-  const isHead = user?.committee_post === 'Designing Head'
+  // ✅ user read via useEffect so it always gets the fresh verified value
+  const [user,   setUser]   = useState({})
+  const [isHead, setIsHead] = useState(false)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}')
+    setUser(stored)
+    const post = stored?.committee_post?.trim().toLowerCase()
+    setIsHead(post === 'designing head')
+    fetchAll()
+  }, [])
 
   const fetchAll = async () => {
     setLoading(true)
@@ -209,7 +216,9 @@ export default function DesigningDashboard() {
                     </a>
                     {(isHead || d.uploaded_by === user?.id) && (
                       <button onClick={() => handleDelete(d.id)}
-                        className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
+                        className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
