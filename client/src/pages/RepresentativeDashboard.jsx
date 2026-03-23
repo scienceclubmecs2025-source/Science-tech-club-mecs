@@ -1,83 +1,104 @@
 import { useState, useEffect } from 'react'
 import {
-  ClipboardList, Plus, Trash2, Download,
-  Link2, Clock, User, ExternalLink,
-  UserPlus, X, Check
+  MessageSquare, CheckCircle, XCircle, Clock,
+  UserPlus, X, Check, Users, FileText, Download,
+  ExternalLink, Trash2
 } from 'lucide-react'
 import api from '../services/api'
 
 export default function RepresentativeDashboard() {
-  const [uploads,         setUploads]         = useState([])
-  const [template,        setTemplate]        = useState(null)
-  const [tasks,           setTasks]           = useState([])
-  const [students,        setStudents]        = useState([])
-  const [representatives, setRepresentatives] = useState([])
-  const [activeTab,       setActiveTab]       = useState('uploads')
-  const [loading,         setLoading]         = useState(true)
-  const [showHireModal,   setShowHireModal]   = useState(false)
-  const [searchQ,         setSearchQ]         = useState('')
-  const [submitting,      setSubmitting]      = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', link: '', category: 'letter' })
+  const [permissions,  setPermissions]  = useState([])
+  const [templates,    setTemplates]    = useState([])
+  const [tasks,        setTasks]        = useState([])
+  const [students,     setStudents]     = useState([])
+  const [team,         setTeam]         = useState([])
+  const [activeTab,    setActiveTab]    = useState('requests')
+  const [loading,      setLoading]      = useState(true)
+  const [filter,       setFilter]       = useState('pending')
+  const [selectedPerm, setSelectedPerm] = useState(null)
+  const [response,     setResponse]     = useState('')
+  const [showHireModal,setShowHireModal]= useState(false)
+  const [searchQ,      setSearchQ]      = useState('')
 
-  const user   = JSON.parse(localStorage.getItem('user') || '{}')
-  const isHead = user?.committee_post === 'Representative Head'
+  // ✅ user read via useEffect so it always gets fresh localStorage value
+  const [user,   setUser]   = useState({})
+  const [isHead, setIsHead] = useState(false)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}')
+    setUser(stored)
+    const post = stored?.committee_post?.trim().toLowerCase()
+    setIsHead(post === 'representative head')
+    fetchData()
+  }, [])
 
-  const fetchAll = async () => {
+  const fetchData = async () => {
     setLoading(true)
     try {
-      const [u, t, tk, allUsers] = await Promise.all([
-        api.get('/team-uploads?team=representative').catch(() => []),
-        api.get('/team-templates?team=representative').catch(() => []),
+      const [perms, tk, allUsers, tmpl] = await Promise.all([
+        api.get('/permissions').catch(() => []),
         api.get('/tasks').catch(() => []),
         api.get('/users').catch(() => []),
+        api.get('/team-templates?team=representative').catch(() => []),
       ])
-      setUploads(Array.isArray(u) ? u : [])
-      const tArr = Array.isArray(t) ? t : []
-      setTemplate(tArr[0] || null)
+      setPermissions(Array.isArray(perms) ? perms : [])
       setTasks(Array.isArray(tk) ? tk : [])
+      setTemplates(Array.isArray(tmpl) ? tmpl : [])
       const all = Array.isArray(allUsers) ? allUsers : []
       setStudents(all.filter(u => u.role === 'student' && !u.is_committee))
-      setRepresentatives(all.filter(u =>
-        u.committee_post === 'Representative Member' || u.committee_post === 'Representative Head'
+      setTeam(all.filter(u =>
+        u.committee_post === 'Representative Member' ||
+        u.committee_post === 'Representative Head'
       ))
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
+  const handleApprove = async (id) => {
     try {
-      await api.post('/team-uploads', { ...form, team: 'representative' })
-      alert('✅ Submitted successfully!')
-      setForm({ title: '', description: '', link: '', category: 'letter' })
-      fetchAll()
-    } catch (err) { alert(err.response?.data?.message || 'Failed') }
-    finally { setSubmitting(false) }
+      await api.put(`/permissions/${id}`, {
+        status: 'approved',
+        response: response.trim() || 'Request approved'
+      })
+      alert('✅ Request approved!')
+      setSelectedPerm(null); setResponse('')
+      fetchData()
+    } catch { alert('Failed to approve request') }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this upload?')) return
-    try { await api.delete(`/team-uploads/${id}`); fetchAll() }
-    catch { alert('Failed to delete') }
+  const handleReject = async (id) => {
+    if (!response.trim()) return alert('Please provide a reason for rejection')
+    try {
+      await api.put(`/permissions/${id}`, { status: 'rejected', response: response.trim() })
+      alert('Request rejected')
+      setSelectedPerm(null); setResponse('')
+      fetchData()
+    } catch { alert('Failed to reject request') }
   }
 
   const handleHire = async (userId, name) => {
-    if (!confirm(`Make ${name} a Representative Member?`)) return
+    if (!confirm(`Add ${name} to Representative Team?`)) return
     try {
       await api.put(`/users/${userId}`, { is_committee: true, committee_post: 'Representative Member' })
-      alert(`✅ ${name} is now a Representative!`); fetchAll()
+      alert(`✅ ${name} added to Representative Team!`); fetchData()
     } catch { alert('Failed') }
   }
 
   const handleFire = async (userId, name) => {
-    if (!confirm(`Remove ${name} from Representatives?`)) return
+    if (!confirm(`Remove ${name} from Representative Team?`)) return
     try {
-      await api.put(`/users/${userId}`, { is_committee: false, committee_post: null }); fetchAll()
+      await api.put(`/users/${userId}`, { is_committee: false, committee_post: null }); fetchData()
     } catch { alert('Failed') }
   }
+
+  const filteredPerms = permissions.filter(p =>
+    filter === 'all' ? true : p.status === filter
+  )
+
+  const filtered = students.filter(s =>
+    s.full_name?.toLowerCase().includes(searchQ.toLowerCase()) ||
+    s.roll_number?.toLowerCase().includes(searchQ.toLowerCase())
+  )
 
   const taskStats = {
     pending:    tasks.filter(t => t.status === 'pending').length,
@@ -85,28 +106,16 @@ export default function RepresentativeDashboard() {
     completed:  tasks.filter(t => t.status === 'completed').length,
   }
 
-  const filtered = students.filter(s =>
-    s.full_name?.toLowerCase().includes(searchQ.toLowerCase()) ||
-    s.roll_number?.toLowerCase().includes(searchQ.toLowerCase())
-  )
-
-  const categoryColors = {
-    letter:  'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
-    request: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    notice:  'bg-green-500/20 text-green-400 border-green-500/30',
-    other:   'bg-gray-500/20 text-gray-400 border-gray-500/30',
-  }
-
   const tabs = [
-    { id: 'uploads', label: '📁 Uploads' },
-    { id: 'submit',  label: '➕ Submit New' },
-    { id: 'tasks',   label: '✅ My Tasks' },
-    { id: 'team',    label: '👥 Team' },
+    { id: 'requests',  label: '📋 Requests' },
+    { id: 'templates', label: '📄 Templates' },
+    { id: 'tasks',     label: '✅ My Tasks' },
+    { id: 'team',      label: '👥 Team' },
   ]
 
   if (loading) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 
@@ -117,8 +126,8 @@ export default function RepresentativeDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold">Representative Dashboard</h1>
@@ -127,7 +136,7 @@ export default function RepresentativeDashboard() {
           </div>
           {isHead && (
             <button onClick={() => setShowHireModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition">
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
               <UserPlus className="w-4 h-4" /> Manage Team
             </button>
           )}
@@ -152,89 +161,105 @@ export default function RepresentativeDashboard() {
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
               }`}>
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* ── UPLOADS ── */}
-        {activeTab === 'uploads' && (
-          <div className="space-y-4">
-            {template && (
-              <div className="bg-gray-900 border border-indigo-500/30 rounded-xl p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-indigo-400 font-medium text-sm">📄 Letter Template</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{template.title}</p>
-                </div>
-                <a href={template.link} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition">
-                  <Download className="w-4 h-4" /> Download Template
-                </a>
-              </div>
-            )}
-            {uploads.length === 0 ? (
+        {/* ── REQUESTS ── */}
+        {activeTab === 'requests' && (
+          <div>
+            {/* Filter bar */}
+            <div className="flex gap-2 mb-4">
+              {['pending', 'approved', 'rejected', 'all'].map(f => (
+                <button key={f} onClick={() => setFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition ${
+                    filter === f ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}>{f}</button>
+              ))}
+            </div>
+
+            {filteredPerms.length === 0 ? (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center text-gray-400">
-                <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>No uploads yet</p>
+                <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p>No {filter !== 'all' ? filter : ''} requests</p>
               </div>
-            ) : uploads.map(u => (
-              <div key={u.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            ) : filteredPerms.map(perm => (
+              <div key={perm.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-white">{u.title}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs border ${categoryColors[u.category] || categoryColors.other}`}>
-                        {u.category}
-                      </span>
+                      <p className="font-semibold text-white">{perm.title || perm.subject || 'Request'}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${
+                        perm.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                        perm.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>{perm.status}</span>
                     </div>
-                    {u.description && <p className="text-gray-400 text-sm mb-2">{u.description}</p>}
+                    {perm.description && <p className="text-gray-400 text-sm mb-2">{perm.description}</p>}
                     <p className="text-gray-600 text-xs">
-                      By {u.uploader?.full_name || u.uploader?.username} · {new Date(u.created_at).toLocaleDateString()}
+                      By {perm.requester?.full_name || perm.requester?.username || 'Unknown'} · {new Date(perm.created_at).toLocaleDateString()}
                     </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <a href={u.link} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-600/30 text-indigo-400 rounded-lg text-sm transition">
-                      <ExternalLink className="w-4 h-4" /> Open
-                    </a>
-                    {(isHead || u.uploaded_by === user?.id) && (
-                      <button onClick={() => handleDelete(u.id)}
-                        className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
+                    {perm.response && (
+                      <p className="text-gray-400 text-xs mt-1 italic">Response: {perm.response}</p>
                     )}
                   </div>
+                  {isHead && perm.status === 'pending' && (
+                    <button onClick={() => setSelectedPerm(selectedPerm?.id === perm.id ? null : perm)}
+                      className="shrink-0 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/30 text-blue-400 rounded-lg text-xs transition">
+                      Respond
+                    </button>
+                  )}
                 </div>
+
+                {/* Inline response panel */}
+                {isHead && selectedPerm?.id === perm.id && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <textarea rows={2} placeholder="Response message (required for rejection)"
+                      value={response} onChange={e => setResponse(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 resize-none mb-3" />
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApprove(perm.id)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-xs font-medium transition">
+                        <CheckCircle className="w-3.5 h-3.5" /> Approve
+                      </button>
+                      <button onClick={() => handleReject(perm.id)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-xs font-medium transition">
+                        <XCircle className="w-3.5 h-3.5" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {/* ── SUBMIT NEW ── */}
-        {activeTab === 'submit' && (
+        {/* ── TEMPLATES ── */}
+        {activeTab === 'templates' && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-white mb-4">Submit Document / Letter</h3>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <input required placeholder="Title" value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
-                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
-              <textarea rows={2} placeholder="Description (optional)" value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
-                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500 resize-none" />
-              <input required placeholder="Google Drive / Docs Link" value={form.link}
-                onChange={e => setForm({ ...form, link: e.target.value })}
-                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500" />
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500">
-                <option value="letter">Letter</option>
-                <option value="request">Request</option>
-                <option value="notice">Notice</option>
-                <option value="other">Other</option>
-              </select>
-              <button type="submit" disabled={submitting}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
-                {submitting ? 'Submitting...' : 'Submit Document'}
-              </button>
-            </form>
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-400" /> Templates & Resources
+            </h3>
+            {templates.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">
+                <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No templates yet — ask admin to add one</p>
+              </div>
+            ) : templates.map(t => (
+              <div key={t.id} className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3 mb-3 gap-4">
+                <div>
+                  <p className="text-white font-medium text-sm">{t.title}</p>
+                  <p className="text-blue-400 text-xs mt-0.5">Resource</p>
+                </div>
+                <a href={t.link} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-medium transition">
+                  <Download className="w-3.5 h-3.5" /> Download
+                </a>
+              </div>
+            ))}
           </div>
         )}
 
@@ -270,14 +295,14 @@ export default function RepresentativeDashboard() {
         {/* ── TEAM ── */}
         {activeTab === 'team' && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-            <h3 className="font-semibold text-white mb-4">Representatives ({representatives.length})</h3>
-            {representatives.length === 0 ? (
+            <h3 className="font-semibold text-white mb-4">Representative Team ({team.length})</h3>
+            {team.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-4">No members yet</p>
-            ) : representatives.map(m => (
+            ) : team.map(m => (
               <div key={m.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 mb-2">
                 <div>
                   <p className="text-white text-sm font-medium">{m.full_name || m.username}</p>
-                  <p className="text-indigo-400 text-xs">{m.committee_post}</p>
+                  <p className="text-blue-400 text-xs">{m.committee_post}</p>
                 </div>
                 {isHead && m.committee_post !== 'Representative Head' && (
                   <button onClick={() => handleFire(m.id, m.full_name || m.username)}
@@ -296,13 +321,13 @@ export default function RepresentativeDashboard() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-white">Add Representative Member</h3>
+              <h3 className="text-lg font-semibold text-white">Add to Representative Team</h3>
               <button onClick={() => setShowHireModal(false)}
                 className="text-gray-400 hover:text-white transition"><X className="w-5 h-5" /></button>
             </div>
             <input placeholder="Search by name or roll number" value={searchQ}
               onChange={e => setSearchQ(e.target.value)}
-              className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500 mb-4" />
+              className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 mb-4" />
             <div className="max-h-72 overflow-y-auto space-y-2">
               {filtered.length === 0 ? (
                 <p className="text-gray-400 text-sm text-center py-4">No students found</p>
@@ -313,7 +338,7 @@ export default function RepresentativeDashboard() {
                     <p className="text-gray-400 text-xs">{s.roll_number} · {s.department}</p>
                   </div>
                   <button onClick={() => handleHire(s.id, s.full_name || s.username)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-medium transition">
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-medium transition">
                     <Check className="w-3.5 h-3.5" /> Add
                   </button>
                 </div>
