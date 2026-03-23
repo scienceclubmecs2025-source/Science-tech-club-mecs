@@ -7,29 +7,36 @@ import {
 import api from '../services/api'
 
 export default function ExecutiveDashboard() {
-  const [events,     setEvents]     = useState([])
-  const [uploads,    setUploads]    = useState([])
-  const [templates,  setTemplates]  = useState([])
-  const [tasks,      setTasks]      = useState([])
-  const [students,   setStudents]   = useState([])
-  const [team,       setTeam]       = useState([])
-  const [activeTab,  setActiveTab]  = useState('events')
-  const [loading,    setLoading]    = useState(true)
-  const [showModal,  setShowModal]  = useState(false)
+  const [events,        setEvents]        = useState([])
+  const [uploads,       setUploads]       = useState([])
+  const [templates,     setTemplates]     = useState([])
+  const [tasks,         setTasks]         = useState([])
+  const [students,      setStudents]      = useState([])
+  const [team,          setTeam]          = useState([])
+  const [activeTab,     setActiveTab]     = useState('events')
+  const [loading,       setLoading]       = useState(true)
+  const [showModal,     setShowModal]     = useState(false)
   const [showHireModal, setShowHireModal] = useState(false)
   const [editingEvent,  setEditingEvent]  = useState(null)
-  const [searchQ,    setSearchQ]    = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [uploadForm, setUploadForm] = useState({ title: '', description: '', link: '', category: 'report' })
-  const [formData,   setFormData]   = useState({
+  const [searchQ,       setSearchQ]       = useState('')
+  const [submitting,    setSubmitting]    = useState(false)
+  const [uploadForm,    setUploadForm]    = useState({ title: '', description: '', link: '', category: 'report' })
+  const [formData,      setFormData]      = useState({
     title: '', description: '', event_date: '', location: '',
     poster_url: '', banner_url: '', report_url: ''
   })
 
-  const user   = JSON.parse(localStorage.getItem('user') || '{}')
-  const isHead = user?.committee_post === 'Executive Head'
+  // ✅ Read from state so it reflects the fresh verified user
+  const [user, setUser] = useState({})
+  const [isHead, setIsHead] = useState(false)
 
-  useEffect(() => { fetchAll() }, [])
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('user') || '{}')
+    setUser(stored)
+    const post = stored?.committee_post?.trim().toLowerCase()
+    setIsHead(post === 'executive head')
+    fetchAll()
+  }, [])
 
   const fetchAll = async () => {
     setLoading(true)
@@ -200,7 +207,7 @@ export default function ExecutiveDashboard() {
           <div className="space-y-4">
             {isHead && (
               <button onClick={() => { setEditingEvent(null); setShowModal(true) }}
-                className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition">
+                className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition mb-2">
                 <Plus className="w-4 h-4" /> Create Event
               </button>
             )}
@@ -208,33 +215,26 @@ export default function ExecutiveDashboard() {
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center text-gray-400">
                 <Calendar className="w-10 h-10 mx-auto mb-2 opacity-30" /><p>No events yet</p>
               </div>
-            ) : events.map(event => (
-              <div key={event.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            ) : events.map(ev => (
+              <div key={ev.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white mb-1">{event.title}</h3>
-                    {event.description && <p className="text-gray-400 text-sm mb-2">{event.description}</p>}
-                    <div className="flex gap-4 text-xs text-gray-500">
-                      {event.event_date && <span>📅 {new Date(event.event_date).toLocaleDateString()}</span>}
-                      {event.location   && <span>📍 {event.location}</span>}
-                      <span className={`px-2 py-0.5 rounded-full border text-xs ${
-                        event.status === 'approved'  ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                        event.status === 'upcoming'  ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                        event.status === 'completed' ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' :
-                        'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
-                      }`}>{event.status}</span>
+                    <h3 className="font-semibold text-white mb-1">{ev.title}</h3>
+                    {ev.description && <p className="text-gray-400 text-sm mb-2">{ev.description}</p>}
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                      {ev.event_date && <span>📅 {new Date(ev.event_date).toLocaleDateString()}</span>}
+                      {ev.location   && <span>📍 {ev.location}</span>}
+                    </div>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {ev.poster_url && <a href={ev.poster_url} target="_blank" rel="noopener noreferrer" className="text-xs text-pink-400 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Poster</a>}
+                      {ev.banner_url && <a href={ev.banner_url} target="_blank" rel="noopener noreferrer" className="text-xs text-pink-400 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Banner</a>}
+                      {ev.report_url && <a href={ev.report_url} target="_blank" rel="noopener noreferrer" className="text-xs text-pink-400 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Report</a>}
                     </div>
                   </div>
                   {isHead && (
                     <div className="flex gap-2 shrink-0">
-                      <button onClick={() => handleEdit(event)}
-                        className="p-1.5 hover:bg-blue-600/20 rounded-lg text-blue-400 transition">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteEvent(event.id)}
-                        className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <button onClick={() => handleEdit(ev)} className="p-1.5 hover:bg-blue-600/20 rounded-lg text-blue-400 transition"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDeleteEvent(ev.id)} className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   )}
                 </div>
@@ -245,11 +245,9 @@ export default function ExecutiveDashboard() {
 
         {/* ── UPLOADS ── */}
         {activeTab === 'uploads' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-pink-400" /> Submit Report / Document Link
-              </h3>
+              <h3 className="font-semibold text-white mb-4">Upload Document</h3>
               <form onSubmit={handleSubmitUpload} className="space-y-3">
                 <input required placeholder="Title" value={uploadForm.title}
                   onChange={e => setUploadForm({ ...uploadForm, title: e.target.value })}
@@ -257,57 +255,41 @@ export default function ExecutiveDashboard() {
                 <textarea rows={2} placeholder="Description (optional)" value={uploadForm.description}
                   onChange={e => setUploadForm({ ...uploadForm, description: e.target.value })}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500 resize-none" />
-                <input required placeholder="Google Drive / Docs Link" value={uploadForm.link}
+                <input required placeholder="Google Drive / Link" value={uploadForm.link}
                   onChange={e => setUploadForm({ ...uploadForm, link: e.target.value })}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
-                <select value={uploadForm.category}
-                  onChange={e => setUploadForm({ ...uploadForm, category: e.target.value })}
+                <select value={uploadForm.category} onChange={e => setUploadForm({ ...uploadForm, category: e.target.value })}
                   className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500">
-                  <option value="report">Event Report</option>
+                  <option value="report">Report</option>
                   <option value="minutes">Meeting Minutes</option>
                   <option value="proposal">Proposal</option>
                   <option value="other">Other</option>
                 </select>
                 <button type="submit" disabled={submitting}
                   className="w-full bg-pink-600 hover:bg-pink-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
-                  {submitting ? 'Submitting...' : 'Submit Document'}
+                  {submitting ? 'Uploading...' : 'Upload'}
                 </button>
               </form>
             </div>
-            <div className="space-y-3">
-              <h3 className="font-semibold text-white flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-gray-400" /> Team Documents ({uploads.length})
-              </h3>
-              {uploads.length === 0 ? (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400">
-                  <Upload className="w-10 h-10 mx-auto mb-2 opacity-30" /><p className="text-sm">No uploads yet</p>
+            {uploads.map(d => (
+              <div key={d.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-white text-sm">{d.title}</p>
+                  {d.description && <p className="text-gray-400 text-xs mt-0.5">{d.description}</p>}
+                  <p className="text-gray-600 text-xs mt-1">{new Date(d.created_at).toLocaleDateString()}</p>
                 </div>
-              ) : uploads.map(u => (
-                <div key={u.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-white">{u.title}</p>
-                        <span className="px-2 py-0.5 bg-pink-500/20 text-pink-400 border border-pink-500/30 rounded-full text-xs">{u.category}</span>
-                      </div>
-                      {u.description && <p className="text-gray-400 text-sm">{u.description}</p>}
-                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span className="flex items-center gap-1"><User className="w-3 h-3" />{u.uploader?.full_name || u.uploader?.username}</span>
-                        <span>{new Date(u.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <a href={u.link} target="_blank" rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-600/30 text-blue-400 rounded-lg text-xs transition">Open</a>
-                      {(isHead || u.uploaded_by === user?.id) && (
-                        <button onClick={() => handleDeleteUpload(u.id)}
-                          className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
-                      )}
-                    </div>
-                  </div>
+                <div className="flex gap-2 shrink-0">
+                  <a href={d.link} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600/20 hover:bg-pink-600/40 border border-pink-600/30 text-pink-400 rounded-lg text-xs transition">
+                    <ExternalLink className="w-3.5 h-3.5" /> Open
+                  </a>
+                  {(isHead || d.uploaded_by === user?.id) && (
+                    <button onClick={() => handleDeleteUpload(d.id)}
+                      className="p-1.5 hover:bg-red-600/20 rounded-lg text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -315,7 +297,7 @@ export default function ExecutiveDashboard() {
         {activeTab === 'templates' && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-pink-400" /> Report Templates
+              <FileText className="w-4 h-4 text-pink-400" /> Templates & Resources
             </h3>
             {templates.length === 0 ? (
               <div className="text-center py-10 text-gray-400">
@@ -326,7 +308,7 @@ export default function ExecutiveDashboard() {
               <div key={t.id} className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3 mb-3 gap-4">
                 <div>
                   <p className="text-white font-medium text-sm">{t.title}</p>
-                  <p className="text-pink-400 text-xs mt-0.5">Executive Template</p>
+                  <p className="text-pink-400 text-xs mt-0.5">Template</p>
                 </div>
                 <a href={t.link} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-600 hover:bg-pink-700 rounded-lg text-xs font-medium transition">
@@ -368,67 +350,63 @@ export default function ExecutiveDashboard() {
 
         {/* ── TEAM ── */}
         {activeTab === 'team' && (
-          <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-pink-400" /> Executive Team ({team.length})
-              </h3>
-              {team.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-4">No members yet</p>
-              ) : team.map(m => (
-                <div key={m.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 mb-2">
-                  <div>
-                    <p className="text-white text-sm font-medium">{m.full_name || m.username}</p>
-                    <p className="text-pink-400 text-xs">{m.committee_post}</p>
-                  </div>
-                  {isHead && m.committee_post !== 'Executive Head' && (
-                    <button onClick={() => handleFire(m.id, m.full_name || m.username)}
-                      className="px-3 py-1 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 text-red-400 rounded-lg text-xs transition">
-                      Remove
-                    </button>
-                  )}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <h3 className="font-semibold text-white mb-4">Executive Team ({team.length})</h3>
+            {team.length === 0 ? (
+              <p className="text-gray-400 text-sm text-center py-4">No members yet</p>
+            ) : team.map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3 mb-2">
+                <div>
+                  <p className="text-white text-sm font-medium">{m.full_name || m.username}</p>
+                  <p className="text-pink-400 text-xs">{m.committee_post}</p>
                 </div>
-              ))}
-            </div>
+                {isHead && m.committee_post !== 'Executive Head' && (
+                  <button onClick={() => handleFire(m.id, m.full_name || m.username)}
+                    className="px-3 py-1 bg-red-600/20 hover:bg-red-600/40 border border-red-600/30 text-red-400 rounded-lg text-xs transition">
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* ── CREATE/EDIT EVENT MODAL ── */}
+      {/* ── EVENT MODAL ── */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-white">{editingEvent ? 'Edit Event' : 'Create Event'}</h3>
               <button onClick={() => { setShowModal(false); setEditingEvent(null) }}
                 className="text-gray-400 hover:text-white transition"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleSubmitEvent} className="space-y-3">
-              {[
-                { key: 'title',       placeholder: 'Event Title',    required: true },
-                { key: 'location',    placeholder: 'Location',       required: false },
-                { key: 'poster_url',  placeholder: 'Poster URL',     required: false },
-                { key: 'banner_url',  placeholder: 'Banner URL',     required: false },
-                { key: 'report_url',  placeholder: 'Report URL',     required: false },
-              ].map(f => (
-                <input key={f.key} required={f.required} placeholder={f.placeholder} value={formData[f.key]}
-                  onChange={e => setFormData({ ...formData, [f.key]: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
-              ))}
-              <textarea rows={3} placeholder="Description" value={formData.description}
+              <input required placeholder="Event Title" value={formData.title}
+                onChange={e => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+              <textarea rows={2} placeholder="Description" value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                 className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500 resize-none" />
               <input type="datetime-local" value={formData.event_date}
                 onChange={e => setFormData({ ...formData, event_date: e.target.value })}
                 className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); setEditingEvent(null) }}
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 py-2.5 rounded-lg text-sm font-medium transition">Cancel</button>
-                <button type="submit" disabled={submitting}
-                  className="flex-1 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
-                  {submitting ? 'Saving...' : editingEvent ? 'Update' : 'Create'}
-                </button>
-              </div>
+              <input placeholder="Location" value={formData.location}
+                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+              <input placeholder="Poster URL (optional)" value={formData.poster_url}
+                onChange={e => setFormData({ ...formData, poster_url: e.target.value })}
+                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+              <input placeholder="Banner URL (optional)" value={formData.banner_url}
+                onChange={e => setFormData({ ...formData, banner_url: e.target.value })}
+                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+              <input placeholder="Report URL (optional)" value={formData.report_url}
+                onChange={e => setFormData({ ...formData, report_url: e.target.value })}
+                className="w-full px-3 py-2.5 bg-black border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-pink-500" />
+              <button type="submit" disabled={submitting}
+                className="w-full bg-pink-600 hover:bg-pink-700 disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium transition">
+                {submitting ? 'Saving...' : editingEvent ? 'Update Event' : 'Create Event'}
+              </button>
             </form>
           </div>
         </div>
